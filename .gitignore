@@ -5,3 +5,5 @@ __pycache__/
 logs/
 
 *.pyc
+
+evo_params.txt
