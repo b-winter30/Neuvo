@@ -39,10 +39,12 @@ class Neuroevolution:
         self.shape = self.load_ann_data_return_shape(dir_path)
         self.type = type
         if self.type.lower() == 'ga':
-            self.EA = GA(shape=self.shape, mutation_rate=self.mutation_rate, genotype=genotype)
+            self.EA = GA(shape=self.shape, mutation_rate=self.mutation_rate, phenotype=genotype)
+            self.model = self.build_ann_custom_architecture_standard_af()
         elif self.type.lower() == 'ge':
             self.EA = GE(shape=self.shape, mutation_rate=self.mutation_rate, genotype=genotype)
-        self.model = self.build_ann_custom_architecture()
+            self.model = self.build_ann_custom_architecture()
+        
         
         return None
     
@@ -80,11 +82,16 @@ class Neuroevolution:
     def build_ann_custom_architecture_standard_af(self):
         tf.keras.backend.clear_session()
         model = Sequential()
-        model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.EA.phenotype['activaton functions'][0], input_dim=self.shape[1], use_bias=True))
+        model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][0]), input_dim=self.shape[1], use_bias=True))
         for i in range(1, self.EA.phenotype['hidden layers']):
-            model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][i], use_bias=True))
-        model.add(Dense(units=1, activation=self.EA.phenotype['activation functions'][-1], use_bias=True))
-        model.compile(optimizer=self.EA.phenotype['optimiser'](clipnorm=2.0), loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
+            model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][i]), use_bias=True))
+        model.add(Dense(units=1, activation=str(self.EA.phenotype['activation functions'][-1]), use_bias=True))
+        '''
+        A downside of this method is that i cannot clip the gradients, meaning we could be getting exploding gradients.
+        More work on this might be worth while.
+        optimiser = tf.keras.optimizers.Optimizer(name='Adam') # ?
+        '''
+        model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                         MeanAbsoluteError(), RootMeanSquaredError()])
         return model
     
@@ -417,13 +424,13 @@ class NeuroBuilder():
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         return self
 
-def run(data_loc):
+def run(data_loc, type):
     from rich.console import Console
     import gc
     console = Console()
     #This builds one individual
     dataset_name = data_loc.rsplit('/', 1)[-1]
-    builder = NeuroBuilder('./evo_params.txt', data_loc, type='ge')
+    builder = NeuroBuilder('./evo_params.txt', data_loc, type=type)
     builder.initialise_pop()
     max_generations = builder.max_generations
     cloning_rate = builder.cloning_rate
@@ -503,6 +510,6 @@ def run(data_loc):
     return None
 
 if __name__ == '__main__':
-    for i in range(1,2):
-        run('./Datasets/WisconsinCancer')
+    #for i in range(1,10):
+    run('./Datasets/WisconsinCancer', 'ga')
         
