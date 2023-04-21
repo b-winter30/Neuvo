@@ -1,2 +1,9 @@
 Datasets/*
 Results/*
+
+__pycache__/
+logs/
+
+*.pyc
+
+evo_params.txt

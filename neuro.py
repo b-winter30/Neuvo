@@ -3,11 +3,14 @@ import time
 import math
 import random
 import matplotlib.pyplot as plt
+import datetime
 import os
+import ast
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import multiprocessing
 from GA import GA
+import numpy as np
 import warnings
 import logging
 warnings.filterwarnings('ignore') 
@@ -16,13 +19,15 @@ tf.get_logger().setLevel(logging.ERROR)
 from Metrics import f1_m, precision_m, recall_m
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Activation, Dense
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.utils import get_custom_objects
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, TerminateOnNaN
 from tensorflow.keras.metrics import MeanAbsoluteError, RootMeanSquaredError
 from sklearn.model_selection import StratifiedKFold
 config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 import psutil
+from GE import GE
 
 class Neuroevolution:
     def __init__(self, evo_params, dir_path, type, genotype=None):
@@ -30,19 +35,21 @@ class Neuroevolution:
         self.population_size = self.parse_params(evo_params)['population_size']
         self.cloning_rate = self.parse_params(evo_params)['cloning_rate']
         self.max_generations = self.parse_params(evo_params)['max_generations']
-        self.shape = self.load_data_return_shape(dir_path)
+        self.string = ""
+        self.shape = self.load_ann_data_return_shape(dir_path)
         self.type = type
         if self.type.lower() == 'ga':
             self.EA = GA(shape=self.shape, mutation_rate=self.mutation_rate, genotype=genotype)
-        #elif self.type.lower() == 'ge':
-        #    self.EA = GE(shape=self.shape, mutation_rate=self.mutation_rate)
+        elif self.type.lower() == 'ge':
+            self.EA = GE(shape=self.shape, mutation_rate=self.mutation_rate, genotype=genotype)
         self.model = self.build_ann_custom_architecture()
+        
         return None
     
     def build_basic_ann(self):
         tf.keras.backend.clear_session()
         model = Sequential()
-        model.add(Dense(units=3, activation='softsign', input_dim=self.shape, use_bias=True))
+        model.add(Dense(units=3, activation='softsign', input_dim=self.shape[1], use_bias=True))
         model.add(Dense(units=3, activation='softplus', use_bias=True))
         model.add(Dense(units=1, activation='sigmoid', use_bias=True))
         model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
@@ -50,21 +57,124 @@ class Neuroevolution:
         model.fit(self.dataX, self.dataY, batch_size=4, epochs=5, verbose=0, validation_data=(self.dataX, self.dataY), callbacks=[es])
         return None
     
+    def custom(self, tensor):
+        sub_string = self.string
+        x = eval(sub_string)
+        return x
+
     def build_ann_custom_architecture(self):
         tf.keras.backend.clear_session()
-        layers, nodes, afs, optimiser, _, _ = list(self.EA.genotype.items())
         model = Sequential()
-        model.add(Dense(units=nodes[1], activation=afs[1][0], input_dim=self.shape, use_bias=True))
-        for i in range(layers[1]):
-            model.add(Dense(units=nodes[1], activation=afs[1][i], use_bias=True))
-        model.add(Dense(units=1, activation=afs[1][-1], use_bias=True))
-        model.compile(optimizer=optimiser[1], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
+        self.string = self.EA.phenotype['activation functions'][0]
+        get_custom_objects().update({'custom': self.custom})
+        model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.custom, input_dim=self.shape[1], use_bias=True))
+        for i in range(1, 3):
+            self.string = self.EA.phenotype['activation functions'][i]
+            model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.custom, use_bias=True))
+        self.string = self.EA.phenotype['activation functions'][-1]
+        model.add(Dense(units=1, activation=self.custom, use_bias=True))
+        model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
+                        MeanAbsoluteError(), RootMeanSquaredError()])
+        return model
+    
+    def build_ann_custom_architecture_standard_af(self):
+        tf.keras.backend.clear_session()
+        model = Sequential()
+        model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.EA.phenotype['activaton functions'][0], input_dim=self.shape[1], use_bias=True))
+        for i in range(1, self.EA.phenotype['hidden layers']):
+            model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][i], use_bias=True))
+        model.add(Dense(units=1, activation=self.EA.phenotype['activation functions'][-1], use_bias=True))
+        model.compile(optimizer=self.EA.phenotype['optimiser'](clipnorm=2.0), loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                         MeanAbsoluteError(), RootMeanSquaredError()])
         return model
     
     def run_ann(self):
         tf.keras.backend.clear_session()
-        _, _, _, _, epochs, batch_size = list(self.EA.genotype.items())
+        kfold = StratifiedKFold(n_splits=2, shuffle=True)
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
+        log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        tb = TensorBoard(log_dir=log_dir, histogram_freq=1, write_grads=True)
+        start = time.time()
+        for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
+            X_train,X_test = self.dataX[train_index],self.dataX[test_index]
+            Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
+            self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
+                            verbose=0, validation_data=(X_test, Y_test), callbacks=[es, tb, TerminateOnNaN()])
+            history = self.model.history.history
+            last_val = history['val_accuracy'].pop()
+        if last_val > 0.4:
+            loss, accuracy, f1, precision, recall, mae, rmse = self.model.evaluate(X_test, Y_test, verbose=0)
+        else:
+            loss, accuracy, f1, precision, recall, mae, rmse = 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        if math.isnan(f1):
+            f1 = 0
+        end = time.time()
+        speed = end - start
+        metrics = {
+            'loss' : loss,
+            'accuracy' : accuracy,
+            'f1' : f1,
+            'precision' : precision,
+            'recall' : recall,
+            'mae' : mae,
+            'rmse' : rmse,
+            'validation_accuracy' : last_val,
+            'speed' : speed
+        }
+        self.phenotype = dict(self.EA.phenotype, **metrics)
+        return None
+
+    def unpickle(self, file):
+        import pickle
+        with open(file, 'rb') as fin:
+            dict = pickle.load(fin, encoding='bytes')
+        return dict
+
+    def load_cnn_data_return_shape(self, dir_path):
+        xs = []
+        ys = []
+        for j in range(5):
+            d = self.unpickle(dir_path+'/data_batch_'+str((j+1)))
+            X = d[b'data']
+            Y = d[b'labels']
+            xs.append(X)
+            ys.append(Y)
+        
+        d = self.unpickle(dir_path+'/test_batch')
+        xs.append(d[b'data'])
+        ys.append(d[b'labels'])
+
+        X = np.concatenate([xs])
+        Y = np.concatenate([ys])
+
+        X = X.astype('float32')
+        X = X / 255.0
+
+        X = X.reshape(60000, 32, 32, 3)
+        Y = Y.reshape(60000, 1)
+        self.dataX = X
+        self.dataY = Y
+        return self.dataX.shape
+    
+    def build_cnn_custom_architecture(self):
+        tf.keras.backend.clear_session()
+        h_layers, nodes, afs, optimiser, _, _ = list(self.EA.phenotype.items())
+        model = Sequential()
+        model.add(tf.keras.layers.Conv2D(32, (3, 3), activation=afs[1][0], input_shape=(32,32,3)))
+        model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+        model.add(tf.keras.layers.Conv2D(64, (3, 3), activation=afs[1][1]))
+        model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+        model.add(tf.keras.layers.Conv2D(64, (3, 3), activation=afs[1][1]))
+        model.add(tf.keras.layers.Flatten())
+        model.add(tf.keras.layers.Dense(64, activation='relu'))
+        model.add(tf.keras.layers.Dense(10))
+        model.compile(optimizer=optimiser[1], loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                       metrics=['accuracy',f1_m,precision_m, recall_m, MeanAbsoluteError(), RootMeanSquaredError()])
+        return model
+    
+    def run_cnn(self):
+        tf.keras.backend.clear_session()
+        _, _, _, _, epochs, batch_size = list(self.EA.phenotype.items())
         kfold = StratifiedKFold(n_splits=2, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=5)
         start = time.time()
@@ -93,7 +203,7 @@ class Neuroevolution:
             'validation_accuracy' : last_val,
             'speed' : speed
         }
-        self.phenotype = dict(self.EA.genotype, **metrics)
+        self.phenotype = dict(self.EA.phenotype, **metrics)
         return None
 
     def parse_params(self, evo_param_file):
@@ -107,15 +217,12 @@ class Neuroevolution:
                     params[key] = float(val)
         return params
     
-    def load_data_return_shape(self, dir_path):
+    def load_ann_data_return_shape(self, dir_path):
         dataX = pd.read_csv(dir_path+'/x_data.csv', header=None)
         dataY = pd.read_csv(dir_path+'/y_data.csv', header=None)
         self.dataX = dataX.to_numpy()
         self.dataY = dataY.to_numpy()
-        return self.dataX.shape[1]
-
-    def evolve(self, evo_params):
-        return None
+        return self.dataX.shape
 
     def build_ann_custom_af():
         return None
@@ -244,16 +351,6 @@ class NeuroBuilder():
         #     print (individual.phenotype)
         self.population = new_pop
         return self
-    '''
-    @staticmethod
-    def remove_metrics(dictionary):
-        entries_to_remove = ('loss', 'accuracy', 'f1', 'precision', 'recall',
-                              'mae', 'rmse', 'validation_accuracy', 'speed')
-        if len(dictionary)-1 > 5:
-            for k in entries_to_remove:
-                dictionary.pop(k, None)
-        return dictionary
-    '''
 
     def crossover(self, parent_one, parent_two):
         import copy
@@ -278,6 +375,7 @@ class NeuroBuilder():
             chance = random.randint(0, 100)
             if chance <= individual.mutation_rate:
                 individual.EA.mutate()
+                individual.build_ann_custom_architecture()
                 individual.run_ann()
         return self
 
@@ -285,6 +383,7 @@ class NeuroBuilder():
         pop = []
         #self.population.clear()
         for individual in population:
+            individual.build_ann_custom_architecture
             individual.run_ann()
             pop.append(individual)
         #self.population = pop
@@ -295,6 +394,7 @@ class NeuroBuilder():
         for _ in range(0, self.population_size):
             a = Neuroevolution(self.parameter_file, self.dir_path, type=self.type)
             a.run_ann()
+            #a.run_cnn()
             pop.append(a)
         self.population = pop
         return self
@@ -317,40 +417,35 @@ class NeuroBuilder():
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         return self
 
-def run():
+def run(data_loc):
     from rich.console import Console
     import gc
     console = Console()
     #This builds one individual
-    data_loc = './Datasets/WisconsinCancer'
     dataset_name = data_loc.rsplit('/', 1)[-1]
-    builder = NeuroBuilder('./evo_params.txt', './Datasets/WisconsinCancer', type='ga')
+    builder = NeuroBuilder('./evo_params.txt', data_loc, type='ge')
     builder.initialise_pop()
     max_generations = builder.max_generations
     cloning_rate = builder.cloning_rate
     mutation_rate = builder.mutation_rate
     population_size = builder.population_size
-    #builder.test()
-    #chance = random.randint(0, 100)
-    # for individual in builder.population:
-    #     print (individual.phenotype)
-    # for i in range(0, max_generations):
-    #     print ('Generation ', str(i), '...')
-    #     builder.roulette_selection()
-    #     individual.EA.mutate()
-    # for individual in builder.population:
-    #     print (individual.phenotype)
 
     plot_generation = []
     plot_best_fitness = []
+    plot_elite_fitness = []
     plot_avg_fitness = []
-    output_file = dataset_name+'_GA_p_'+str(population_size)+'_mr_'+str(mutation_rate)+'_cr_'+str(cloning_rate)+'_mg'
+    elite_individual = {}
+    elite_fitness = 0.0
+    output_file = dataset_name+'_ge_p_'+str(population_size)+'_mr_'+str(mutation_rate)+'_cr_'+str(cloning_rate)+'_mg'
     with console.status("[bold green]Running through generations...") as status:
         for i in range(max_generations+1):
             builder.roulette_selection()
             builder.mutate()
             builder.which_fittest()
             best_network = builder.fittest
+            if best_network.phenotype['validation_accuracy'] >= elite_fitness:
+                elite_fitness = best_network.phenotype['validation_accuracy']
+                elite_individual = best_network.phenotype
             #Every 50th generation, save the fittest network in a file.
             if i % 50 == 0 or best_network.phenotype['validation_accuracy'] >= 1.0:
                 num = str(i)
@@ -366,6 +461,7 @@ def run():
                     string5 = "ROC AUC Error"
                 string6 = "F Measure score = " + str(best_network.phenotype['f1'])
                 string7 = "Individual = " + str(best_network.phenotype)
+                string8 = "Elite Individual = " + str(elite_individual)
                 with open('./Results/Reformatted/'+output_file+'.csv','a') as fd:
                     fd.write(num + "\n") 
                     fd.write(string0 + "\n")
@@ -377,15 +473,18 @@ def run():
                     fd.write(string5 + "\n")
                     fd.write(string6 + "\n")
                     fd.write(string7 + "\n")
+                    fd.write(string8 + "\n")
                     fd.write("\n")
                     fd.close()
                 if best_network.phenotype['validation_accuracy'] >= 1.0:
                     break
             plot_generation.append(i)
             plot_best_fitness.append(best_network.phenotype['validation_accuracy'])  
+            plot_elite_fitness.append(elite_fitness)  
             plot_avg_fitness.append(builder.pop_average_fitness)  
             console.log(f"Generation {i} complete...")
         plt.plot(plot_generation, plot_best_fitness, label='Best fitness')
+        plt.plot(plot_generation, plot_elite_fitness, label='Elite fitness')
         plt.plot(plot_generation, plot_avg_fitness, label='Average fitness')
         plt.legend(loc='best')
         plt.xlabel('Number of Generations')
@@ -404,6 +503,6 @@ def run():
     return None
 
 if __name__ == '__main__':
-    for i in range(3,10):
-        run()
+    for i in range(1,2):
+        run('./Datasets/WisconsinCancer')
         
