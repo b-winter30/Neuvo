@@ -1,6 +1,9 @@
 Datasets/*
 Results/*
 
+*.err.*
+*.out.*
+
 __pycache__/
 logs/
 
