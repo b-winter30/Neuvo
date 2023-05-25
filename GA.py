@@ -44,7 +44,7 @@ class GA:
     
     def remove_metrics(self):
         entries_to_remove = ('loss', 'accuracy', 'f1', 'precision', 'recall',
-                              'mae', 'rmse', 'validation_accuracy', 'speed')
+                              'mae', 'rmse', 'validation_accuracy', 'speed', 'val_acc_plus_f1')
         if len(self.phenotype)-1 > 5:
             for k in entries_to_remove:
                 self.phenotype.pop(k, None)

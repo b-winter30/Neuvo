@@ -16,8 +16,19 @@ class GE:
         self.keys = ['hidden layers', 'nodes', 'activation functions', 'optimiser', 'number of epochs', 'batch size']
         self.punctuation = ['(', ')', '[', '[\'', '], ', '\'], ', '\'] ', ']', ':', ',', '\"', '\'{', '}\'']
         self.phenotype = ""
-        self.phenotype_builder()
-        self.dictionise()
+        try:
+            self.phenotype_builder()
+            self.dictionise()
+        except RecursionError:
+            self.phenotype = {
+                'hidden layers' : 1,
+                'nodes' : 2,
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'optimiser' : 'Adam',
+                'number of epochs' : 1,
+                'batch size' : 8
+            }
+        
         self.n_layers = None
         return None
     
@@ -61,7 +72,7 @@ class GE:
         grammar = {
             'start' : [['expr']],
 
-            'expr' : [['\'{', '\"', 'hidden layers', '\"', ':', 'nodes_var', ',', '\"', 'nodes', '\"', ':', 'layers_var', ',', '\"', 'activation functions', '\"', ':', 
+            'expr' : [['\'{', '\"', 'hidden layers', '\"', ':', 'layers_var', ',', '\"', 'nodes', '\"', ':', 'nodes_var', ',', '\"', 'activation functions', '\"', ':', 
                        '[', '\"', 'activation_function', '\"', ',',  '\"', 'activation_function', '\"', ',', '\"', 'activation_function', '\"', ',', '\"', 'activation_function', '\"', ']', ',',
                         '\"', 'optimiser', '\"', ':', '\"', 'opti', '\"', ',', '\"', 'number of epochs', '\"', ':', 'epochs', ',', '\"', 'batch size', '\"', ':', 'batch_size', '}\'']],
 
@@ -75,7 +86,7 @@ class GE:
             ['tf.math.tan', '(', 'acti_non_terminal', ')'], ['tf.math.abs', '(', 'acti_non_terminal', ')'],
             ['tf.math.minimum', '(', 'acti_input', ',', 'acti_non_terminal', ')'],
             ['tf.math.maximum', '(', 'acti_input', ',', 'acti_non_terminal', ')'], 
-            ['tf.math.reduce_max', '(', 'acti_non_terminal', ')'], ['tf.math.tanh', '(', 'acti_non_terminal', ')'],
+            ['tf.math.tanh', '(', 'acti_non_terminal', ')'],
             ['tf.math.square', '(', 'acti_non_terminal', ')'], ['tf.math.sqrt', '(', 'acti_non_terminal', ')'],
             ['tf.math.negative', '(', 'acti_non_terminal', ')']], 
 
@@ -83,7 +94,7 @@ class GE:
             ['tf.math.tan', '(', 'acti_input', ')'], 
             ['tf.math.minimum', '(', 'acti_input', ',', 'acti_var', ')'],
             ['tf.math.maximum', '(', 'acti_input', ',', 'acti_var', ')'], ['tf.math.exp', '(', 'acti_input', ')'],
-            ['tf.math.reduce_sum', '(', 'acti_input', ')'], ['tf.math.tanh', '(', 'acti_input', ')']],
+            ['tf.math.tanh', '(', 'acti_input', ')']],
 
             'acti_non_terminal' : [['acti_input'], ['acti_pre_op']],
 
@@ -159,7 +170,7 @@ class GE:
 
     def remove_metrics(self):
         entries_to_remove = ('loss', 'accuracy', 'f1', 'precision', 'recall',
-                              'mae', 'rmse', 'validation_accuracy', 'speed')
+                              'mae', 'rmse', 'validation_accuracy', 'speed', 'val_acc_plus_f1')
         if len(self.phenotype)-1 > 5:
             for k in entries_to_remove:
                 self.phenotype.pop(k, None)
@@ -187,6 +198,19 @@ class GE:
         which_mutation = random.choice(range(0, len(self.genotype)-1))
         choices = [-1, 1]
         self.genotype[which_mutation] = self.genotype[which_mutation] + (random.choice(choices))
+        try:
+            self.phenotype = ""
+            self.phenotype_builder()
+            self.dictionise()
+        except RecursionError:
+            self.phenotype = {
+                'hidden layers' : 1,
+                'nodes' : 2,
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'optimiser' : 'Adam',
+                'number of epochs' : 1,
+                'batch size' : 8
+            }
         return self
     
     def dictionise(self):

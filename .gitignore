@@ -4,6 +4,8 @@ Results/*
 *.err.*
 *.out.*
 
+*.sh
+
 __pycache__/
 logs/
 

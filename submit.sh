@@ -3,7 +3,7 @@
 #SBATCH --job-name=neuro_object # Job name
 #SBATCH --account=scw1978
 #SBATCH --nodes=1
-#SBATCH --mem-per-cpu=32000MB
+#SBATCH --mem-per-cpu=256000MB
 #SBATCH --time=3-00:00
 #SBATCH --output=neuro_object.out.%J
 #SBATCH --error=neuro_object.err.%J

@@ -192,15 +192,14 @@ class Neuroevolution:
         tf.keras.backend.clear_session()
         model = Sequential()
         shape = self.dataX.shape[1:]
-        model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=str(self.EA.phenotype['activation functions'][0]), input_shape=shape))
+        model.add(tf.keras.layers.Conv2D(32, (3, 3), activation=str(self.EA.phenotype['activation functions'][0]), input_shape=shape))
         model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-        for i in range(1, self.EA.phenotype['layers']):
-            self.string = self.EA.phenotype['activation functions'][i]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.EA.phenotype['activation functions'][i]))
-            model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+        model.add(tf.keras.layers.Conv2D(64, (3, 3), activation=str(self.EA.phenotype['activation functions'][1])))
+        model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+        model.add(tf.keras.layers.Conv2D(64, (3, 3), activation=str(self.EA.phenotype['activation functions'][2])))
         model.add(tf.keras.layers.Flatten())
-        model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-        model.add(tf.keras.layers.Dense(1, activation=self.EA.phenotype['activation functions'][-1]))
+        model.add(tf.keras.layers.Dense(64, activation='sigmoid'))
+        model.add(tf.keras.layers.Dense(1))
         model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                        metrics=['accuracy',f1_m,precision_m, recall_m, MeanAbsoluteError(), RootMeanSquaredError()])
         return model
@@ -211,24 +210,23 @@ class Neuroevolution:
         self.string = self.EA.phenotype['activation functions'][0]
         get_custom_objects().update({'custom': self.custom})
         shape = self.dataX.shape[1:]
-        model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
+        model.add(tf.keras.layers.Conv2D(32, (3, 3), activation=self.custom, input_shape=shape))
         model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-        for i in range(1, self.EA.phenotype['layers']):
+        for i in range(1, 3):
             self.string = self.EA.phenotype['activation functions'][i]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
+            model.add(tf.keras.layers.Conv2D(64, (3, 3), activation=self.custom))
             model.add(tf.keras.layers.MaxPooling2D((2, 2)))
         self.string = self.EA.phenotype['activation functions'][-1]
         model.add(tf.keras.layers.Flatten())
-        model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-        model.add(tf.keras.layers.Dense(1,activation=self.EA.phenotype['activation functions'][-1]))
+        model.add(tf.keras.layers.Dense(64, activation='sigmoid'))
+        model.add(tf.keras.layers.Dense(1))
         model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                        metrics=['accuracy',f1_m,precision_m, recall_m, MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
     def run_cnn(self):
         tf.keras.backend.clear_session()
-        num_folds = 5
-        kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
+        kfold = StratifiedKFold(n_splits=2, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=2)
         start = time.time()
         for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
@@ -238,16 +236,12 @@ class Neuroevolution:
                            verbose=0, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=0)
-            loss += los
-            accuracy += acc
-            f1 += f
-            precision += prec
-            recall += rec
-            mae += ma
-            rmse += rms
-        loss, accuracy, f1, precision, recall, mae, rmse = (loss/num_folds), (accuracy/num_folds), (f1/num_folds), \
-            (precision/num_folds), (recall/num_folds), (mae/num_folds), (rmse/num_folds)
+        if last_val > 0.4:
+            loss, accuracy, f1, precision, recall, mae, rmse = self.model.evaluate(X_test, Y_test, verbose=0)
+        else:
+            loss, accuracy, f1, precision, recall, mae, rmse = 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        if math.isnan(f1):
+            f1 = 0
         end = time.time()
         speed = end - start
         metrics = {
@@ -588,10 +582,10 @@ def run(data_loc, type):
     return None
 
 if __name__ == '__main__':
-    #for i in range(2):
-    run('./Datasets/DogsCats', type='ge')
-    #for i in range(2):
-    run('./Datasets/DogsCats', type='ga')
+    for i in range(5):
+        run('./Datasets/Pima', type='ga')
+    for i in range(5):
+        run('./Datasets/Pima', type='ga')
     
 
         
