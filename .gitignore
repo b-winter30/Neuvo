@@ -1,0 +1,14 @@
+Datasets/*
+Results/*
+
+*.err.*
+*.out.*
+
+*.sh
+
+__pycache__/
+logs/
+
+*.pyc
+
+evo_params.txt
