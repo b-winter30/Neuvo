@@ -1,4 +1,4 @@
 mutation_rate = 2
-population_size = 10
+population_size = 3
 cloning_rate = 0.33
-max_generations = 500
+max_generations = 3
