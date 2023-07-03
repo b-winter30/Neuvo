@@ -27,9 +27,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-d", "--dataset", default="WisconsinCancer", help="Dataset location")
-    parser.add_argument("-p", "--parameters", help="Evolutionary parameters file")
     parser.add_argument("-t", "--type", default='ga',  help="Type of evolutionary algorithm ga/ge")
-    parser.add_argument("-r", "--runs", default='1',  type=int, help="How many runs")
     parser.add_argument("-e", "--eco", action='store_true', help="Ecologoical mode (True/False)")
     parser.add_argument("-ne", "--no-eco", dest='eco', action='store_false')
     parser.set_defaults(eco=False)
