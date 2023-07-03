@@ -3,9 +3,7 @@ import time
 import math
 import random
 import matplotlib.pyplot as plt
-import datetime
 import os
-import ast
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import multiprocessing
@@ -13,8 +11,6 @@ from rich.console import Console
 import copy
 import gc
 from GA import GA
-import GA_eco
-import numpy as np
 import warnings
 import logging
 warnings.filterwarnings('ignore') 
@@ -24,17 +20,15 @@ config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 from Metrics import f1_m, precision_m, recall_m
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout 
-from tensorflow.keras.layers import GlobalMaxPooling2D, MaxPooling2D
-from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout 
+from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.utils import get_custom_objects
-from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, TerminateOnNaN
-from tensorflow.keras.metrics import MeanAbsoluteError, RootMeanSquaredError
+from tensorflow.keras.callbacks import EarlyStopping, TerminateOnNaN
+from tensorflow.keras.metrics import MeanAbsoluteError, RootMeanSquaredError, Precision, Recall
 from sklearn.model_selection import StratifiedKFold
 config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
-import psutil
 from GE import GE
 
 class Neuroevolution:
@@ -100,7 +94,6 @@ class Neuroevolution:
         model.add(Dense(units=8, activation='relu', use_bias=True))
         model.add(Dense(units=1, activation='sigmoid', use_bias=True))
         model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=5)
         num_folds = 2
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
@@ -116,7 +109,7 @@ class Neuroevolution:
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
             #if last_val > 0.1:
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=0)
+            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
             f1 += f
@@ -152,14 +145,14 @@ class Neuroevolution:
         return x
     
     def build_ann_custom_architecture(self):
-        
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
+            print (self.dataY.shape[-1])
             model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][0]), input_dim=self.shape[1], use_bias=True))
             for i in range(1, self.EA.phenotype['hidden layers']):
                 model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][i]), use_bias=True))
-            model.add(Dense(units=1, activation=str(self.EA.phenotype['activation functions'][-1]), use_bias=True))
+            model.add(Dense(units=self.dataY.shape[-1], activation=str(self.EA.phenotype['activation functions'][-1]), use_bias=True))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
@@ -170,7 +163,7 @@ class Neuroevolution:
                 self.string = self.EA.phenotype['activation functions'][i]
                 model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.custom, use_bias=True))
             self.string = self.EA.phenotype['activation functions'][-1]
-            model.add(Dense(units=1, activation=self.custom, use_bias=True))
+            model.add(Dense(units=self.dataY.shape[-1], activation=self.custom, use_bias=True))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
         return model
@@ -191,7 +184,7 @@ class Neuroevolution:
                             verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=0)
+            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
             f1 += f
@@ -224,43 +217,39 @@ class Neuroevolution:
             self.EA.genotype = self.EA.phenotype
         return None
     
-    def build_cnn_custom_architecture_standard_af(self):
-        from tensorflow.keras.models import Model
-        tf.keras.backend.clear_session()
-        model = Sequential()
-        model.add(Conv2D(self.EA.phenotype['nodes'], kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0]))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Flatten())
-        for i in range(1, self.EA.phenotype['hidden layers']):
-            self.string = self.EA.phenotype['activation functions'][i]
-            model.add(Dense(self.EA.phenotype['nodes']*4, activation=self.EA.phenotype['activation functions'][i]))
-        model.add(Dropout(0.2))
-        model.add(Dense(10, activation='softmax'))
-        
-        model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
-                       metrics=['accuracy',f1_m,precision_m, recall_m, MeanAbsoluteError(), RootMeanSquaredError()])
-        return model
-    
     def build_cnn_custom_architecture(self):
         tf.keras.backend.clear_session()
         model = Sequential()
-        self.string = self.EA.phenotype['activation functions'][0]
-        get_custom_objects().update({'custom': self.custom})
-        shape = self.dataX.shape[1:]
-        model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
-        model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-        for i in range(1, self.EA.phenotype['hidden layers']):
-            self.string = self.EA.phenotype['activation functions'][i]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
+        try:
+            model.add(Conv2D(self.EA.phenotype['nodes'], kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0]))
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+            model.add(Flatten())
+            for i in range(1, self.EA.phenotype['hidden layers']):
+                self.string = self.EA.phenotype['activation functions'][i]
+                model.add(Dense(self.EA.phenotype['nodes']*4, activation=self.EA.phenotype['activation functions'][i]))
+            model.add(Dropout(0.2))
+            model.add(Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
+            
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
+                       metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
+        except ValueError:
+            self.string = self.EA.phenotype['activation functions'][0]
+            get_custom_objects().update({'custom': self.custom})
+            shape = self.dataX.shape[1:]
+            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
             model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-        self.string = self.EA.phenotype['activation functions'][-1]
-        model.add(tf.keras.layers.Flatten())
-        model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-        model.add(tf.keras.layers.Dense(1,activation=self.EA.phenotype['activation functions'][-1]))
-        model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
-                       metrics=['accuracy',f1_m,precision_m, recall_m, MeanAbsoluteError(), RootMeanSquaredError()])
+            for i in range(1, self.EA.phenotype['hidden layers']):
+                self.string = self.EA.phenotype['activation functions'][i]
+                model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
+                model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+            self.string = self.EA.phenotype['activation functions'][-1]
+            model.add(tf.keras.layers.Flatten())
+            model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(tf.keras.layers.Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
+                        metrics=['accuracy',Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
     def run_cnn(self, queue=None):
@@ -270,17 +259,18 @@ class Neuroevolution:
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=2)
         start = time.time()
         loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
+        print ('Running cnn...', self.verbose)
         for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
             self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'], 
-                           verbose=0, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
+                           verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=0)
+            los, acc, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
-            f1 += f
+            f1 += 2*(rec*prec)/(rec+prec)
             precision += prec
             recall += rec
             mae += ma
@@ -674,6 +664,18 @@ class NeuroBuilder():
         return pop
 
     def initialise_pop(self, insertions=[], elite_mode=False):
+        '''
+        This function initialises the population by creating NeuroEvolution objects and running them 
+        for classification depending on the shape of the inputted data (ANN/CNN).
+        
+        Parameters:
+            insertions (list(dict)) : Insertions allow for users to insert a phenotype if running with GA set,
+                                      or input a genotype if running with GE set. These insertions allow the user
+                                      to include a 'prior' best network should they have one.
+            elite_mode (bool) : This variable determines whether the elite individual ie the fittest individual, should
+                                automatically be cloned into the next generation.
+                                
+        '''
         console = Console()
         with console.status("[bold green]Initialising poulation...") as status:
             self.catch_eco()
@@ -704,6 +706,10 @@ class NeuroBuilder():
         return self
     
     def which_fittest(self):
+        '''
+        This function discovers the fittest individual in the population, and saves the fittest individual as self.fittest.
+        It also discovers the average fitness of the population and saves this as self.pop_average_fitness.
+        '''
         fittest_val = 0.0
         self.pop_average_fitness = 0.0
         for individual in self.population:
@@ -721,6 +727,14 @@ class NeuroBuilder():
         return self
 
     def pop_recalibrate(self):
+        '''
+        This function recalibrates the population, specifically during ecological mode there are times within
+        the evolutionary steps where the population size can be increased or decreased, this function ensures there are 
+        the right amount of individuals within the population.
+        
+        If an ecological change happens and the population size is reduced, the least fit individuals will be removed from
+        the population.
+        '''
         self.catch_eco()
         while self.fittest.phenotype['population size'] > len(self.population):
             insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
@@ -857,8 +871,8 @@ class NeuroBuilder():
             data (list(np.array)) : This should be a list of size 2 containing two numpy arrays,
                                     one containing training data and one comparing the training labels.
         '''
-        dataX = data[0].to_numpy()
-        dataY = data[1].to_numpy()
+        dataX = data[0]
+        dataY = data[1]
         self.data = dataX, dataY
         return self
     
@@ -883,29 +897,33 @@ class NeuroBuilder():
         return self
 
     def run(self, plot=True, verbose=0):
+        '''
+        Starter pistol function to run the evolutionary process. 
+        Runs through the entire evolutionary process, selection, mutation, crossover etc.
+        This function also calls the plot function to show the progression of the fittest
+        individuals over generations.
+        
+        Parameters:
+            plot (bool) : A boolean parameter set by the user to plot the results of the evolutionary process.
+            verbose (int) (0/1/2) : A flag parameter used to turn tensorflows verbose function on.
+                                    See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model
+        '''
         self.verbose=verbose
         console = Console()
         catch = False
         self.which_fittest()
-        if self.eco:
-            max_generations = self.fittest.phenotype['max generations']
-            cloning_rate = self.fittest.phenotype['cloning rate']
-            mutation_rate = self.fittest.phenotype['mutation rate']
-            population_size = self.fittest.phenotype['population size']
-        else: 
-            max_generations = self.max_generations
-            cloning_rate = self.cloning_rate
-            mutation_rate = self.mutation_rate
-            population_size = self.population_size
-        assert max_generations > 0, 'Maximum number of generations must be > 0'
+        self.catch_eco()
+        
+        assert self.max_generations > 0, 'Maximum number of generations must be > 0'
+        assert verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
         plot_generation, plot_best_fitness, plot_elite_fitness, plot_elite_fitness, plot_avg_fitness = ([] for i in range(5))
         elite_individual = None
         elite_fitness = 0.0
-        output_file = self.dataset_name+'_'+str(self.type)+'_p_'+str(population_size)+'_mr_'+str(mutation_rate)+'_cr_'+str(cloning_rate)+'_eco_'+str(self.eco)
+        output_file = self.dataset_name+'_'+str(self.type)+'_p_'+str(self.population_size)+'_mr_'+str(self.mutation_rate)+'_cr_'+str(self.cloning_rate)+'_eco_'+str(self.eco)
         with console.status("[bold green]Running through generations...") as status:
             i = 1
             try:
-                while i <= max_generations:
+                while i <= self.max_generations:
                     self.selection_choice()
                     self.mutate()
                     self.which_fittest()
@@ -913,12 +931,9 @@ class NeuroBuilder():
                         elite_individual = copy.copy(self.fittest)
                         elite_fitness = self.fittest.EA.phenotype[self.fitness_function]
                     if self.eco:
-                        max_generations = elite_individual.EA.phenotype['max generations']
-                        cloning_rate = elite_individual.EA.phenotype['cloning rate']
-                        mutation_rate = elite_individual.EA.phenotype['mutation rate']
-                        population_size = elite_individual.EA.phenotype['population size']
+                        self.catch_eco()
                         self.pop_recalibrate()
-                        if max_generations <= i:
+                        if self.max_generations <= i:
                             catch = True
                     self.checkpoint_handler(generation=str(i), elite_individual=elite_individual, output_file=output_file)
                     #Every 50th generation, save the fittest network in a file.
@@ -929,7 +944,7 @@ class NeuroBuilder():
                     plot_elite_fitness.append(elite_fitness)  
                     plot_avg_fitness.append(self.pop_average_fitness)  
                     console.log(f"Generation {i} complete...")
-                    if catch == True:
+                    if catch == True: 
                         break
                     i += 1   
                 if plot:
@@ -946,72 +961,3 @@ class NeuroBuilder():
         print (completion_message)
         gc.collect()
         return self
-
-def load_cnn_data(dir_path):
-    xs = []
-    ys = []
-    if 'cifar' in dir_path:
-        cifar10 = tf.keras.datasets.cifar10
-        (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-        x_train, x_test = x_train / 255.0, x_test / 255.0
-        
-        X = np.concatenate((x_train, x_test), axis=0)
-        y_train, y_test = y_train.flatten(), y_test.flatten()
-        Y = np.concatenate((y_train, y_test), axis=0)
-    dataX = X
-    dataY = Y
-    return [dataX, dataY]
-
-def unpickle(file):
-    import pickle
-    with open(file, 'rb') as fin:
-        dict = pickle.load(fin, encoding='bytes')
-    return dict
-
-def load_1d_data(dir_path):
-    dataX = pd.read_csv('./Datasets/'+dir_path+'/x_data.csv', header=None)
-    dataY = pd.read_csv('./Datasets/'+dir_path+'/y_data.csv', header=None)
-    return [dataX, dataY]
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-d", "--dataset", default="WisconsinCancer", help="Dataset location")
-    parser.add_argument("-p", "--parameters", default='evo_params.txt',  help="Evolutionary parameters file")
-    parser.add_argument("-t", "--type", default='ga',  help="Type of evolutionary algorithm ga/ge")
-    parser.add_argument("-r", "--runs", default='1',  type=int, help="How many runs")
-    parser.add_argument("-e", "--eco", action='store_true', help="Ecologoical mode (True/False)")
-    parser.add_argument("-ne", "--no-eco", dest='eco', action='store_false')
-    parser.set_defaults(eco=False)
-    args = vars(parser.parse_args())
-    insertions = [{
-           'hidden layers' : 3,
-           'nodes' : 8,
-           'activation functions' : ['relu', 'relu', 'relu', 'relu', 'sigmoid'],
-           'optimiser' : 'adam',
-           'number of epochs' : 50,
-           'batch size' : 4#,
-           #'mutation rate' : 0.1,
-           #'max generations' : 500,
-           #'population size' : 10,
-           #'cloning rate' : 0.33
-       }]
-    
-    #insertions = [[25, 36, 27, 38, 9, 33, 30, 29, 11, 2, 35, 12, 39, 22, 16, 6, 19, 21, 3, 4, 8, 17, 37, 28, 1, 15, 31, 10, 14, 0, 24, 20]]
-    #for i in range(args["runs"]):
-        
-    data = load_1d_data(args["dataset"])
-    Neuro = NeuroBuilder(type=args["type"], eco=args["eco"])
-    
-    Neuro.selection='Roulette'
-    Neuro.population_size=3
-    Neuro.mutation_rate=0.3
-    Neuro.cloning_rate=0.3
-    Neuro.max_generations=2
-
-    Neuro.dataset_name = args["dataset"]
-    Neuro.load_data(data)
-    Neuro.set_fitness_function('val_acc_x_f1')
-    Neuro.initialise_pop()#insertions
-    Neuro.run(plot=True, verbose=0)
-    
