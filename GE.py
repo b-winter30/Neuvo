@@ -63,7 +63,7 @@ class GE:
             self.phenotype = {
                 'hidden layers' : 1,
                 'nodes' : 2,
-                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
                 'optimiser' : 'Adam',
                 'number of epochs' : 1,
                 'batch size' : 8
@@ -71,7 +71,8 @@ class GE:
         return self
     
     def set_grammar(self, user_grammar_file=None):
-        '''Set self.grammar, a default grammar is provided, however if the user has a grammar that can be inputted
+        '''
+        Set self.grammar, a default grammar is provided, however if the user has a grammar that can be inputted
         with the variable user_grammar_file.
         
         Parameters:
