@@ -148,7 +148,6 @@ class Neuroevolution:
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
-            print (self.dataY.shape[-1])
             model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][0]), input_dim=self.shape[1], use_bias=True))
             for i in range(1, self.EA.phenotype['hidden layers']):
                 model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][i]), use_bias=True))
@@ -249,7 +248,7 @@ class Neuroevolution:
             model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
             model.add(tf.keras.layers.Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
             model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
-                        metrics=['accuracy',Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
+                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
     def run_cnn(self, queue=None):
@@ -259,7 +258,6 @@ class Neuroevolution:
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=2)
         start = time.time()
         loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
-        print ('Running cnn...', self.verbose)
         for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
@@ -443,7 +441,6 @@ class NeuroBuilder():
 
         cloned_pop.extend(population_copy[:n])
         reproducible_pop = population_copy[n:]
-        print (reproducible_pop)
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
             random_choices = random.sample(reproducible_pop, tournament_size)

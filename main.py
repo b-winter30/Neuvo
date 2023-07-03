@@ -34,20 +34,16 @@ if __name__ == '__main__':
     parser.add_argument("-ne", "--no-eco", dest='eco', action='store_false')
     parser.set_defaults(eco=False)
     args = vars(parser.parse_args())
-    insertions = [{
-            'hidden layers' : 2,
-            'nodes' : 8,
-            'activation functions' : ['relu', 'relu',  'relu', 'sigmoid'],
-            'optimiser' : 'Adam',
-            'number of epochs' : 5,
-            'batch size' : 2#,
-            #'mutation rate' : 0.1,
-            #'max generations' : 500,
-            #'population size' : 10,
-            #'cloning rate' : 0.33
-        }]
+    # insertions = [{
+    #         'hidden layers' : 2,
+    #         'nodes' : 8,
+    #         'activation functions' : ['relu', 'relu',  'relu', 'sigmoid'],
+    #         'optimiser' : 'Adam',
+    #         'number of epochs' : 5,
+    #         'batch size' : 2
+    #     }]
 
-    #insertions = [[25, 36, 27, 38, 9, 33, 30, 29, 11, 2, 35, 12, 39, 22, 16, 6, 19, 21, 3, 4, 8, 17, 37, 28, 1, 15, 31, 10, 14, 0, 24, 20]]
+    insertions = [[25, 36, 27, 38, 9, 33, 30, 29, 11, 2, 35, 12, 39, 22, 16, 6, 19, 21, 3, 4, 8, 17, 37, 28, 1, 15, 31, 10, 14, 0, 24, 20]]
     #for i in range(args["runs"]):
         
     data = load_1d_data(args["dataset"])
@@ -55,10 +51,10 @@ if __name__ == '__main__':
 
     Neuro.selection='Tournament'
     Neuro.population_size=3
-    Neuro.mutation_rate=0.3
+    Neuro.mutation_rate=0.01
     Neuro.cloning_rate=0.3
     Neuro.max_generations=2
-    Neuro.verbose=2
+    Neuro.verbose=0
 
     Neuro.dataset_name = args["dataset"]
     Neuro.load_data(data)
