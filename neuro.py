@@ -321,7 +321,7 @@ class Neuroevolution:
                 self.EA.phenotype.pop(k, None)
         return self
 
-class NeuroBuilder():
+class NeuvoBuilder():
     def __init__(self, evo_params=None, type='ga', fittest=None, eco=False, verbose=0, gene_value=40, genotype_length=32,
                  fitness_function='f1'):
         self.fitness_function = fitness_function
