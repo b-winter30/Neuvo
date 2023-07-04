@@ -92,7 +92,7 @@ class Neuroevolution:
         model.add(Dense(units=8, activation='relu', use_bias=True))
         model.add(Dense(units=8, activation='relu', use_bias=True))
         model.add(Dense(units=8, activation='relu', use_bias=True))
-        model.add(Dense(units=1, activation='sigmoid', use_bias=True))
+        model.add(Dense(units=1, activation='sigmoid'))
         model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
         num_folds = 2
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
