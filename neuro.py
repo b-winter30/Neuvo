@@ -137,7 +137,6 @@ class Neuroevolution:
         }
         return metrics
     
-    #I need to make this safer, what if someone inputs system.exit(0) in their grammar.
     def custom(self, tensor):
         sub_string = self.string
         x = eval(sub_string)
@@ -150,7 +149,7 @@ class Neuroevolution:
             model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][0]), input_dim=self.shape[1], use_bias=True))
             for i in range(1, self.EA.phenotype['hidden layers']):
                 model.add(Dense(units=self.EA.phenotype['nodes'], activation=str(self.EA.phenotype['activation functions'][i]), use_bias=True))
-            model.add(Dense(units=self.dataY.shape[-1], activation=str(self.EA.phenotype['activation functions'][-1]), use_bias=True))
+            model.add(Dense(units=self.dataY.shape[-1], activation=str(self.EA.phenotype['activation functions'][-1])))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
@@ -161,7 +160,7 @@ class Neuroevolution:
                 self.string = self.EA.phenotype['activation functions'][i]
                 model.add(Dense(units=self.EA.phenotype['nodes'], activation=self.custom, use_bias=True))
             self.string = self.EA.phenotype['activation functions'][-1]
-            model.add(Dense(units=self.dataY.shape[-1], activation=self.custom, use_bias=True))
+            model.add(Dense(units=self.dataY.shape[-1], activation=self.custom))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
         return model
@@ -261,7 +260,8 @@ class Neuroevolution:
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
             self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'], 
-                           verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
+                           verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()],
+                           use_multiprocessing=True)
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
             los, acc, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
