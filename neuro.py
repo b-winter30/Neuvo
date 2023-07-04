@@ -108,7 +108,6 @@ class Neuroevolution:
                             verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
-            #if last_val > 0.1:
             los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
@@ -309,17 +308,6 @@ class Neuroevolution:
                 except ValueError:
                     params[key] = float(val)
         return params
-
-    def build_ann_custom_af():
-        return None
-    
-    def remove_metrics(self):
-        entries_to_remove = ('loss', 'accuracy', 'f1', 'precision', 'recall',
-                              'mae', 'rmse', 'validation_accuracy', 'speed', 'val_acc_x_f1')
-        if len(self.EA.phenotype)-1 > 5:
-            for k in entries_to_remove:
-                self.EA.phenotype.pop(k, None)
-        return self
 
 class NeuvoBuilder():
     def __init__(self, evo_params=None, type='ga', fittest=None, eco=False, verbose=0, gene_value=40, genotype_length=32,
@@ -534,8 +522,8 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
-        parent_one = parent_one.remove_metrics()
-        parent_two = parent_two.remove_metrics()
+        parent_one.EA.remove_metrics()
+        parent_two.EA.remove_metrics()
         if self.type == 'ge':
             children = self.crossover_ge(parent_one=parent_one, parent_two=parent_two)
         elif self.type == 'ga':

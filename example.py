@@ -46,5 +46,5 @@ if __name__ == '__main__':
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)
     Neuvo.set_fitness_function('val_acc_x_f1')
-    Neuvo.initialise_pop(insertions=insertions)
+    Neuvo.initialise_pop()
     Neuvo.run(plot=True)
