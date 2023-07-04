@@ -1,4 +1,4 @@
-from neuro import NeuroBuilder
+from neuro import NeuvoBuilder
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -34,17 +34,17 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     
     data = load_1d_data(args["dataset"])
-    Neuro = NeuroBuilder(type=args["type"], eco=args["eco"])
+    Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
-    Neuro.selection='Tournament'
-    Neuro.population_size=3
-    Neuro.mutation_rate=0.01
-    Neuro.cloning_rate=0.3
-    Neuro.max_generations=2
-    Neuro.verbose=0
+    Neuvo.selection='Tournament'
+    Neuvo.population_size=3
+    Neuvo.mutation_rate=0.01
+    Neuvo.cloning_rate=0.3
+    Neuvo.max_generations=2
+    Neuvo.verbose=0
 
-    Neuro.dataset_name = args["dataset"]
-    Neuro.load_data(data)
-    Neuro.set_fitness_function('val_acc_x_f1')
-    Neuro.initialise_pop(insertions=insertions)
-    Neuro.run(plot=True)
+    Neuvo.dataset_name = args["dataset"]
+    Neuvo.load_data(data)
+    Neuvo.set_fitness_function('val_acc_x_f1')
+    Neuvo.initialise_pop(insertions=insertions)
+    Neuvo.run(plot=True)
