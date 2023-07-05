@@ -70,7 +70,7 @@ class Neuroevolution:
     def catch_eco(self):
         '''
         A function to check whether eco mode is activated, if it is then the evolutionary parameters will be
-        set by the fittest individuals genes, else it will be chosen by the user from a parameter_file or 
+        set by the fittest individuals genes, else it will be chosen by the user from a parameter_list or 
         inputted at runtime by the user.
         '''
         if self.fittest != None:
