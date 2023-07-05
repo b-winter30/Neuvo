@@ -81,7 +81,6 @@ class GE:
             to create a grammar can be found in the .README.
         '''
         if user_grammar_file:
-            print ('Using users grammar...')
             g_file = open(user_grammar_file)
             jsonstr = g_file.read()
             json_dic = json.loads(jsonstr)
@@ -292,8 +291,6 @@ class GE:
         return self
 
 if __name__ == '__main__':
-    for i in range(100):
-        individual = GE(shape=8, mutation_rate=100)
-        #individual.pm_mutate()
-        print (individual.phenotype)
+    individual = GE(shape=8, mutation_rate=100, user_grammar_file='basic_grammar.txt')
+    print (individual.phenotype)
    

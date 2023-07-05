@@ -36,6 +36,7 @@ if __name__ == '__main__':
     data = load_1d_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
+    Neuvo.grammar_file='basic_grammar.txt'
     Neuvo.selection='Tournament'
     Neuvo.population_size=3
     Neuvo.mutation_rate=0.01
