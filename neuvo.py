@@ -33,13 +33,14 @@ from GE import GE
 
 class Neuroevolution:
     def __init__(self, data, type, evo_params=None, genotype=None, fittest=None,  
-                 eco=False, verbose=0, genotype_length=32, gene_value=40):
+                 eco=False, verbose=0, genotype_length=32, gene_value=40, grammar_file=None):
         self.parameter_list = evo_params
         self.eco=eco
         self.fittest = fittest
         self.catch_eco()
         self.string = ""
         self.type = type
+        self.grammar_file=grammar_file
         self.verbose = verbose
         self.dataX = data[0]
         self.dataY = data[1]
@@ -60,7 +61,7 @@ class Neuroevolution:
             self.EA = GA(shape=self.shape, mutation_rate=self.mutation_rate, phenotype=self.genotype, eco=self.eco)
         else:
             self.EA = GE(shape=self.shape, mutation_rate=self.mutation_rate, genotype=self.genotype,
-                        genotype_length=genotype_length, gene_value=gene_value)
+                        genotype_length=genotype_length, gene_value=gene_value, user_grammar_file=self.grammar_file)
 
     def build_parent(self, genotype_length=32, gene_value=40):
         self.build_ea(genotype_length=genotype_length, gene_value=gene_value)
@@ -311,10 +312,11 @@ class Neuroevolution:
 
 class NeuvoBuilder():
     def __init__(self, evo_params=None, type='ga', fittest=None, eco=False, verbose=0, gene_value=40, genotype_length=32,
-                 fitness_function='f1'):
+                 fitness_function='f1', grammar_file=None):
         self.fitness_function = fitness_function
         self.fittest = fittest
         self.type = type
+        self.grammar_file=grammar_file
         self.dataset_name = ""
         self.gene_value = gene_value
         self.genotype_length = genotype_length
@@ -648,7 +650,7 @@ class NeuvoBuilder():
             pop.append(individual)
         return pop
 
-    def initialise_pop(self, insertions=[], elite_mode=False):
+    def initialise_pop(self, insertions=[], elite_mode=False, grammar_file=None):
         '''
         This function initialises the population by creating NeuroEvolution objects and running them 
         for classification depending on the shape of the inputted data (ANN/CNN).
@@ -670,7 +672,8 @@ class NeuvoBuilder():
             pop = []
             for genotype in insertions:
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, genotype=genotype, type=self.type, fittest=None,
-                                    eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length)
+                                    eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length,
+                                    grammar_file=self.grammar_file)
                 if len(a.shape) > 2:
                     a.run_cnn()
                 else:
@@ -678,7 +681,7 @@ class NeuvoBuilder():
                 pop.append(a)
             for _ in range(0, self.population_size-len(insertions)):
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, verbose=self.verbose, fittest=None,
-                                gene_value=self.gene_value, genotype_length=self.genotype_length)
+                                gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 if len(a.shape) > 2:
                     a.run_cnn()
                 else:
@@ -724,7 +727,7 @@ class NeuvoBuilder():
         while self.fittest.phenotype['population size'] > len(self.population):
             insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
                                        fittest=self.fittest.phenotype, genotype=self.fittest.phenotype, verbose=self.verbose,
-                                       gene_value=self.gene_value, genotype_length=self.genotype_length)
+                                       gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
             if len(insertion.shape) > 2:
                 insertion.run_cnn()
             else:
@@ -740,7 +743,7 @@ class NeuvoBuilder():
             for phenotype in sorted_pop:
                 insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
                                            fittest=self.fittest.phenotype, genotype=phenotype, verbose=self.verbose,
-                                           gene_value=self.gene_value, genotype_length=self.genotype_length)
+                                           gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 if len(insertion.shape) > 2:
                     insertion.run_cnn()
                 else:
@@ -801,7 +804,7 @@ class NeuvoBuilder():
         string6 = "F Measure score = " + str(elite_individual.EA.phenotype['f1'])
         string9 = "Validation accuracy x F Measure score = " + str(elite_individual.EA.phenotype['val_acc_x_f1'])
         string7 = "Individual = " + str(elite_individual.EA.phenotype)
-        with open('./Results/'+output_file+'.csv','w') as fd:
+        with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write(generation + "\n") 
             fd.write(string0 + "\n")
             fd.write(string00 + "\n")
