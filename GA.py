@@ -44,7 +44,7 @@ class GA:
 
         optimiser = self.optimizers[random.randint(0, len(self.optimizers)-1)]
         epochs = int(abs(np.random.normal(50, 15)))
-        batch_size = int(np.random.beta(3, 8)*10 + 1)
+        batch_size = int(np.random.beta(3, 7)*10 + 1)
         phenotype = {
             'hidden layers' : hidden_layers,
             'nodes' : nodes,
@@ -111,7 +111,7 @@ class GA:
             elif which_mutation[0] == 'number of epochs':
                 self.phenotype[which_mutation[0]] = int(abs(np.random.normal(50, 15)))
             elif which_mutation[0] == 'batch size':
-                self.phenotype[which_mutation[0]] = int(np.random.beta(3, 8)*10 + 1)
+                self.phenotype[which_mutation[0]] = int(np.random.beta(3, 7)*10 + 1)
             if self.eco:
                 if which_mutation[0] == 'mutation rate':
                     self.phenotype[which_mutation[0]] = round(np.random.beta(1, 7, 1)[0], 2)

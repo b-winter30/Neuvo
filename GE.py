@@ -11,6 +11,7 @@ class GE:
         self.mutation_rate = mutation_rate
         self.genotype_length = genotype_length
         self.gene_value = gene_value
+        self.genes = 5
         self.set_grammar(user_grammar_file)
         self.catch_genotype(genotype=genotype)
         self.catch_grammar_exclusions()
@@ -221,7 +222,7 @@ class GE:
         '''
         entries_to_remove = ('loss', 'accuracy', 'f1', 'precision', 'recall',
                               'mae', 'rmse', 'validation_accuracy', 'speed', 'val_acc_plus_f1')
-        if len(self.phenotype)-1 > 5:
+        if len(self.phenotype)-1 > self.genes:
             for k in entries_to_remove:
                 self.phenotype.pop(k, None)
         return self.phenotype
