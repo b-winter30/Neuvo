@@ -36,7 +36,7 @@ class GE:
         '''
         Build a random integer genotype with variable size and gene values.
         
-        Paramaters:
+        Parameters:
             genotype_length (int): The maximum length of the genotype. (Default is 32)
             gene_value (int): The maximum value each gene can be. (Default=40)
             
@@ -240,7 +240,7 @@ class GE:
             self.phenotype = {
                 'hidden layers' : 1,
                 'nodes' : 2,
-                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
                 'optimiser' : 'Adam',
                 'number of epochs' : 1,
                 'batch size' : 8
@@ -266,7 +266,7 @@ class GE:
             self.phenotype = {
                 'hidden layers' : 1,
                 'nodes' : 2,
-                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
                 'optimiser' : 'Adam',
                 'number of epochs' : 1,
                 'batch size' : 8

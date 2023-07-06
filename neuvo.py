@@ -764,10 +764,10 @@ class NeuvoBuilder():
         '''
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write('FINAL OUTPUT' + "\n")
-            fd.write('' + 'Hidden layers,' + 'Nodes,' + 'AF1,' + 'AF2,' + 'AF3,' + 'AF4,' + 'AF5,' + 'Optimiser,' +
+            fd.write('' + 'Hidden layers,' + 'Nodes,' + 'Activation functions,' + 'Optimiser,' +
                       'Epochs,' + 'B Size,' + 'Loss,' + 'Accuracy,' + 'F1,' + 'Precision,' + 'Recall,' + 'MAE,' + 'RMSE,' + 'Val. Acc.,' + 'Speed,' + 'Val x F1,' +  "\n") 
             fd.write(str(elite_individual.EA.phenotype.get('hidden layers')) + ',' + str(elite_individual.EA.phenotype.get('nodes')) + ',' + str(elite_individual.EA.phenotype.get('activation functions')) + ',' + 
-                     str(elite_individual.EA.phenotype.get('optimiser')) + ',' + str(elite_individual.EA.phenotype.get('epochs')) + ',' +
+                     str(elite_individual.EA.phenotype.get('optimiser')) + ',' + str(elite_individual.EA.phenotype.get('number of epochs')) + ',' +
                      str(elite_individual.EA.phenotype.get('batch size')) + ',' + str(elite_individual.EA.phenotype.get('loss')) + ',' + str(elite_individual.EA.phenotype.get('accuracy')) + ',' +
                      str(elite_individual.EA.phenotype.get('f1')) + ',' + str(elite_individual.EA.phenotype.get('precision')) + ',' + str(elite_individual.EA.phenotype.get('recall')) + ',' +
                      str(elite_individual.EA.phenotype.get('mae')) + ',' + str(elite_individual.EA.phenotype.get('rmse')) + ',' + str(elite_individual.EA.phenotype.get('validation_accuracy')) + ',' +
@@ -915,14 +915,15 @@ class NeuvoBuilder():
                     self.selection_choice()
                     self.mutate()
                     self.which_fittest()
-                    if self.fittest.EA.phenotype[self.fitness_function] >= elite_fitness:
-                        elite_individual = copy.copy(self.fittest)
-                        elite_fitness = self.fittest.EA.phenotype[self.fitness_function]
                     if self.eco:
                         self.catch_eco()
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
+                    if self.fittest.EA.phenotype[self.fitness_function] >= elite_fitness:
+                        elite_individual = copy.copy(self.fittest)
+                        elite_fitness = self.fittest.EA.phenotype[self.fitness_function]
+                    
                     self.checkpoint_handler(generation=str(i), elite_individual=elite_individual, output_file=output_file)
                     #Every 50th generation, save the fittest network in a file.
                     if i % 50 == 0 or elite_individual.EA.phenotype[self.fitness_function] >= 2.0 or catch:
@@ -931,6 +932,7 @@ class NeuvoBuilder():
                     plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
                     plot_elite_fitness.append(elite_fitness)  
                     plot_avg_fitness.append(self.pop_average_fitness)  
+
                     console.log(f"Generation {i} complete...")
                     if catch == True: 
                         break
