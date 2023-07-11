@@ -236,6 +236,7 @@ class GE:
         self.phenotype = ""
         try:
             self.phenotype_builder()
+            self.dictionise()
         except RecursionError:
             self.phenotype = {
                 'hidden layers' : 1,
@@ -245,7 +246,7 @@ class GE:
                 'number of epochs' : 1,
                 'batch size' : 8
             }
-        self.dictionise()
+        
         return self
     
     def plus_minus_mutation(self):
@@ -293,4 +294,5 @@ class GE:
 if __name__ == '__main__':
     individual = GE(shape=8, mutation_rate=100, user_grammar_file='basic_grammar.txt')
     print (individual.phenotype)
+    
    
