@@ -236,16 +236,17 @@ class GE:
         self.phenotype = ""
         try:
             self.phenotype_builder()
+            self.dictionise()
         except RecursionError:
             self.phenotype = {
                 'hidden layers' : 1,
                 'nodes' : 2,
-                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
                 'optimiser' : 'Adam',
                 'number of epochs' : 1,
                 'batch size' : 8
             }
-        self.dictionise()
+        
         return self
     
     def plus_minus_mutation(self):
@@ -266,7 +267,7 @@ class GE:
             self.phenotype = {
                 'hidden layers' : 1,
                 'nodes' : 2,
-                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
+                'activation functions' : ['tensor*0.0', 'tensor*0.0', 'tensor*0.0'],
                 'optimiser' : 'Adam',
                 'number of epochs' : 1,
                 'batch size' : 8
@@ -293,4 +294,5 @@ class GE:
 if __name__ == '__main__':
     individual = GE(shape=8, mutation_rate=100, user_grammar_file='basic_grammar.txt')
     print (individual.phenotype)
+    
    
