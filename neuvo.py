@@ -558,7 +558,7 @@ class NeuvoBuilder():
         
         child1 = parent_one
         child2 = parent_two
-        crossover_point = random.randint(0, len(list(child1.EA.phenotype.items()))-1)
+        crossover_point = random.randint(0, len(list(child1.EA.phenotype.items()))-2)
         count = 0
         for key in child1.EA.phenotype:
             if count <= crossover_point:
@@ -594,7 +594,7 @@ class NeuvoBuilder():
         '''
         child1 = parent_one
         child2 = parent_two
-        crossover_point = random.randint(0, len(list(child1.EA.genotype))-1)
+        crossover_point = random.randint(0, len(list(child1.EA.genotype))-2)
         count = 0
         for i in range(len(child1.EA.genotype)-1):
             if count <= crossover_point:

@@ -114,18 +114,25 @@ class GA:
             elif which_mutation[0] == 'number of epochs':
                 self.phenotype[which_mutation[0]] = int(abs(np.random.normal(50, 15)))
             elif which_mutation[0] == 'batch size':
-                self.phenotype[which_mutation[0]] = int(np.random.beta(3, 7)*10 + 1)
+                self.phenotype[which_mutation[0]] = self.plus_minus_mutation_for_beta_dis(which_mutation[0])
             if self.eco:
                 if which_mutation[0] == 'mutation rate':
-                    self.phenotype[which_mutation[0]] = round(np.random.beta(1, 7, 1)[0], 2)
+                    self.phenotype[which_mutation[0]] = self.plus_minus_mutation_for_beta_dis(which_mutation[0])
                 elif which_mutation[0] == 'population size':
                     self.phenotype[which_mutation[0]] = int(10 * random.random()) + 3
                 elif which_mutation[0] == 'cloning rate':
-                    self.phenotype[which_mutation[0]] = round(np.random.beta(6, 4, 1)[0], 2)
+                    self.phenotype[which_mutation[0]] = self.plus_minus_mutation_for_beta_dis(which_mutation[0])
                 elif which_mutation[0] == 'max generations':
                     self.phenotype[which_mutation[0]] = int(500 * random.random()) + 1
         self.genotype = self.phenotype
         return self
+    
+    @staticmethod
+    def plus_minus_mutation_for_beta_dis(self, key):
+        choices = [-1, 1]
+        self.phenotype[key] = self.phenotype[key] + random.choice(choices)
+        return self.phenotype[key]
+
 
 if __name__ == '__main__':
     individual = GA(shape=8, mutation_rate=100)
