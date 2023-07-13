@@ -18,8 +18,8 @@ def load_cnn_data(dir_path):
     return [dataX, dataY]
 
 def load_1d_data(dir_path):
-    dataX = pd.read_csv('../Datasets/'+dir_path+'/x_data.csv', header=None)
-    dataY = pd.read_csv('../Datasets/'+dir_path+'/y_data.csv', header=None)
+    dataX = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/x_data.csv', header=None)
+    dataY = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/y_data.csv', header=None)
     
     return [dataX.to_numpy(), dataY.to_numpy()]
 
@@ -36,16 +36,16 @@ if __name__ == '__main__':
     data = load_1d_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
-    Neuvo.grammar_file='basic_grammar.txt'
-    Neuvo.selection='Tournament'
-    Neuvo.population_size=3
-    Neuvo.mutation_rate=0.01
-    Neuvo.cloning_rate=0.3
-    Neuvo.max_generations=2
+    #Neuvo.grammar_file='basic_grammar.txt'
+    Neuvo.selection='Roulette'
+    Neuvo.population_size=10
+    Neuvo.mutation_rate=0.1
+    Neuvo.cloning_rate=0.33
+    Neuvo.max_generations=25
     Neuvo.verbose=0
 
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)
     Neuvo.set_fitness_function('val_acc_x_f1')
-    Neuvo.initialise_pop()
+    Neuvo.initialise_pop(elite_mode=True)
     Neuvo.run(plot=True)

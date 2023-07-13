@@ -100,7 +100,10 @@ class GA:
                     while self.phenotype['hidden layers'] > len(self.phenotype['activation functions'])-2:
                         self.phenotype['activation functions'].insert(len(self.phenotype['activation functions'])-1, self.activation_functions[random.randint(0, len(self.activation_functions)-1)])
             elif which_mutation[0] == 'nodes':
-                self.phenotype[which_mutation[0]] = int(20 * random.random()) + self.shape[1]
+                if len(self.shape) > 2:
+                    self.phenotype[which_mutation[0]] = int(20 * random.random()) + self.shape[1:]
+                else:
+                    self.phenotype[which_mutation[0]] = int(20 * random.random()) + self.shape[1]
             elif which_mutation[0] == 'activation functions':
                 which_af = random.randint(0, len(self.phenotype[which_mutation[0]])-1)
                 for i in range(0, len(self.phenotype['activation functions'])):

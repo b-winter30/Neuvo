@@ -36,7 +36,7 @@ class GE:
         '''
         Build a random integer genotype with variable size and gene values.
         
-        Paramaters:
+        Parameters:
             genotype_length (int): The maximum length of the genotype. (Default is 32)
             gene_value (int): The maximum value each gene can be. (Default=40)
             
