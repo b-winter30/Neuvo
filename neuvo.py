@@ -452,17 +452,21 @@ class NeuvoBuilder():
         '''
 
         '''
+        cloned_pop = []
+        if self.elite_mode:
+            cloned_pop.append(self.fittest)
+        population_copy = copy.copy(self.population)
         phenotype_list = []
-        for individual in self.population:
+        for individual in population_copy:
             phenotype_list.append(individual.EA.phenotype)
 
         sorted_phenotypes = sorted(phenotype_list, key= lambda x: x[self.fitness_function], reverse=True)
-        for i in range(0, len(self.population)):
-            self.population[i].EA.phenotype = sorted_phenotypes[i]
+        for i in range(0, len(population_copy)):
+            population_copy[i].EA.phenotype = sorted_phenotypes[i]
 
-        n = math.ceil(len(self.population)*self.parameter_list['cloning rate'])
-        cloned_pop = self.population[:n]
-        sorted_phenotypes = self.population[n:]
+        n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
+        cloned_pop.extend(population_copy[:n])
+        sorted_phenotypes = population_copy[n:]
         max_values = 0
         for i in range(len(sorted_phenotypes)):
             max_values += sorted_phenotypes[i].EA.phenotype.get(self.fitness_function)
@@ -689,7 +693,7 @@ class NeuvoBuilder():
                 pop.append(a)
             
             self.population = pop
-            console.log(f"Initialisation complete...")
+            console.log("Initialisation complete...")
         gc.collect()
         return self
     
@@ -702,12 +706,15 @@ class NeuvoBuilder():
         self.pop_average_fitness = 0.0
         for individual in self.population:
             if self.fitness_function not in individual.EA.phenotype:
-                individual.run_ann()
-                print ('Individual after failed fitness check = ', individual.EA.phenotype)
+                print ('This individual doesn\'t have metrics... ', individual.EA.phenotype)
+                if len(individual.shape) > 2:
+                    individual.run_cnn()
+                else:
+                    individual.run_ann()
 
-            if individual.EA.phenotype[self.fitness_function] >= fittest_val:
+            if individual.EA.phenotype.get(self.fitness_function) >= fittest_val:
                 self.fittest = individual
-                fittest_val = individual.EA.phenotype[self.fitness_function]
+                fittest_val = individual.EA.phenotype.get(self.fitness_function)
                 self.pop_average_fitness += fittest_val
             
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
@@ -759,19 +766,19 @@ class NeuvoBuilder():
         Parameters:
             output_file (str) : The user defined name they would like the directory of the output file to be.
                                     Files are stored as './Results/-output_file-'
-            elite_individual (Neuroevolution obj) : The best performing individual seen throughout
+            elite_individual (dic) : The phenotype of the best performing individual seen throughout
                                                         the evolutionary process so far.
         '''
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write('FINAL OUTPUT' + "\n")
             fd.write('' + 'Hidden layers,' + 'Nodes,' + 'Activation functions,' + 'Optimiser,' +
                       'Epochs,' + 'B Size,' + 'Loss,' + 'Accuracy,' + 'F1,' + 'Precision,' + 'Recall,' + 'MAE,' + 'RMSE,' + 'Val. Acc.,' + 'Speed,' + 'Val x F1,' +  "\n") 
-            fd.write(str(elite_individual.EA.phenotype.get('hidden layers')) + ',' + str(elite_individual.EA.phenotype.get('nodes')) + ',' + str(elite_individual.EA.phenotype.get('activation functions')) + ',' + 
-                     str(elite_individual.EA.phenotype.get('optimiser')) + ',' + str(elite_individual.EA.phenotype.get('number of epochs')) + ',' +
-                     str(elite_individual.EA.phenotype.get('batch size')) + ',' + str(elite_individual.EA.phenotype.get('loss')) + ',' + str(elite_individual.EA.phenotype.get('accuracy')) + ',' +
-                     str(elite_individual.EA.phenotype.get('f1')) + ',' + str(elite_individual.EA.phenotype.get('precision')) + ',' + str(elite_individual.EA.phenotype.get('recall')) + ',' +
-                     str(elite_individual.EA.phenotype.get('mae')) + ',' + str(elite_individual.EA.phenotype.get('rmse')) + ',' + str(elite_individual.EA.phenotype.get('validation_accuracy')) + ',' +
-                     str(elite_individual.EA.phenotype.get('speed')) + ',' + str(elite_individual.EA.phenotype.get('val_acc_x_f1')) +"\n")
+            fd.write(str(elite_individual.get('hidden layers')) + ',' + str(elite_individual.get('nodes')) + ',' + str(elite_individual.get('activation functions')) + ',' + 
+                     str(elite_individual.get('optimiser')) + ',' + str(elite_individual.get('number of epochs')) + ',' +
+                     str(elite_individual.get('batch size')) + ',' + str(elite_individual.get('loss')) + ',' + str(elite_individual.get('accuracy')) + ',' +
+                     str(elite_individual.get('f1')) + ',' + str(elite_individual.get('precision')) + ',' + str(elite_individual.get('recall')) + ',' +
+                     str(elite_individual.get('mae')) + ',' + str(elite_individual.get('rmse')) + ',' + str(elite_individual.get('validation_accuracy')) + ',' +
+                     str(elite_individual.get('speed')) + ',' + str(elite_individual.get('val_acc_x_f1')) +"\n")
             fd.write("\n")
             fd.close()
         return None
@@ -786,24 +793,24 @@ class NeuvoBuilder():
 
         Parameters:
             generation (int) : The current evolutionary generation number.
-            elite_individual (Neuroevolution obj) : The best performing individual seen throughout
+            elite_individual (Dic) : The phenotype of the best performing individual seen throughout
                                                     the evolutionary process so far.
             output_file (str) : The user defined name they would like the directory of the output file to be.
                                 Files are stored as './Results/-output_file-'
         '''
-        string0 = "Validation accuracy = " + str(elite_individual.EA.phenotype['validation_accuracy'])
-        string00 = "Speed = " + str(elite_individual.EA.phenotype['speed'])
-        string1 = "MAE = " + str(elite_individual.EA.phenotype['mae'])
-        string2 = "Test acc = " + str(elite_individual.EA.phenotype['accuracy'])
-        string3 = "RMSE = " + str(elite_individual.EA.phenotype['rmse'])
-        string4 = "Precision = " + str(elite_individual.EA.phenotype['precision'])
+        string0 = "Validation accuracy = " + str(elite_individual['validation_accuracy'])
+        string00 = "Speed = " + str(elite_individual['speed'])
+        string1 = "MAE = " + str(elite_individual['mae'])
+        string2 = "Test acc = " + str(elite_individual['accuracy'])
+        string3 = "RMSE = " + str(elite_individual['rmse'])
+        string4 = "Precision = " + str(elite_individual['precision'])
         try:
-            string5 = "Recall = " + str(elite_individual.EA.phenotype['recall'])
+            string5 = "Recall = " + str(elite_individual['recall'])
         except ValueError:
             string5 = "ROC AUC Error"
-        string6 = "F Measure score = " + str(elite_individual.EA.phenotype['f1'])
-        string9 = "Validation accuracy x F Measure score = " + str(elite_individual.EA.phenotype['val_acc_x_f1'])
-        string7 = "Individual = " + str(elite_individual.EA.phenotype)
+        string6 = "F Measure score = " + str(elite_individual['f1'])
+        string9 = "Validation accuracy x F Measure score = " + str(elite_individual['val_acc_x_f1'])
+        string7 = "Individual = " + str(elite_individual)
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write(generation + "\n") 
             fd.write(string0 + "\n")
@@ -914,20 +921,24 @@ class NeuvoBuilder():
                 while i <= self.max_generations:
                     self.selection_choice()
                     self.mutate()
-                    self.which_fittest()
                     if self.eco:
                         self.catch_eco()
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
-                    if self.fittest.EA.phenotype[self.fitness_function] >= elite_fitness:
-                        elite_individual = copy.copy(self.fittest)
-                        elite_fitness = self.fittest.EA.phenotype[self.fitness_function]
-                    
-                    self.checkpoint_handler(generation=str(i), elite_individual=elite_individual, output_file=output_file)
+                    self.which_fittest()
+                    if self.fittest.EA.phenotype.get(self.fitness_function) > elite_fitness:
+                        print ('Elite individual = ', elite_individual)
+                        print ('Elite fitness = ', elite_fitness)
+                        elite_individual = self.fittest.EA.phenotype
+                        elite_fitness = elite_individual[self.fitness_function]
+                        print ('Elite individual = ', elite_individual)
+                        print ('Elite fitness = ', elite_fitness)
                     #Every 50th generation, save the fittest network in a file.
-                    if i % 50 == 0 or elite_individual.EA.phenotype[self.fitness_function] >= 2.0 or catch:
-                        self.output_results_into_csv(output_file, elite_individual)
+                    if i % 50 == 0 or i == 1 or catch:
+                        print ('Elite individual before checkpoint = ', elite_individual)
+                        print ('Elite fitness before checkpoint = ', elite_fitness)
+                        self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
                     plot_generation.append(i)
                     plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
                     plot_elite_fitness.append(elite_fitness)  
@@ -945,7 +956,7 @@ class NeuvoBuilder():
             except KeyboardInterrupt:
                 self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
                 self.plot(generation=plot_generation, best_fitness=plot_best_fitness, elite_fitness=plot_elite_fitness, 
-                            avg_fitness=plot_avg_fitness)
+                            avg_fitness=plot_avg_fitness, output_file=output_file)
             self.output_results_into_csv(output_file, elite_individual)
         completion_message = '***Evolution complete***'
         print (completion_message)
