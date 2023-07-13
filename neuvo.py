@@ -7,6 +7,7 @@ import os
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import multiprocessing
+import json
 from rich.console import Console
 import copy
 import gc
@@ -542,6 +543,44 @@ class NeuvoBuilder():
         However, determining the crossover point is different, as opposed to GE, 
         in GA the genotype is the same as the phenotype.
         
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
+        if self.crossover_method == 'one_point':
+            child1, child2 = self.one_point_crossover_ga(parent_one=parent_one, parent_two=parent_two)
+        elif self.crossover_method == 'two_point':
+            child1, child2 = self.two_point_crossover_ga(parent_one=parent_one, parent_two=parent_two)
+        return [child1, child2]
+
+    def crossover_ge(self, parent_one, parent_two):
+        '''
+        The crossover function for GE. This is the same function as it is for GA,
+        However, determining the crossover point is different, as opposed to GA, 
+        in GE the genotype is seperate to the phenotype.
+        
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
+        if self.crossover_method == 'one_point':
+            child1, child2 = self.one_point_crossover_ge(parent_one=parent_one, parent_two=parent_two)
+        elif self.crossover_method == 'two_point':
+            child1, child2 = self.two_point_crossover_ge(parent_one=parent_one, parent_two=parent_two)
+        return [child1, child2]
+
+    def one_point_crossover_ga(self, parent_one, parent_two):
+        '''
         Here we determine a random gene in the genotype to be the 'slice' or 
         crossover point in which the genes between 0 and the crossover point
         from both parents will be recombinated and placed into two offspring.
@@ -555,27 +594,59 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
-        
         child1 = parent_one
         child2 = parent_two
-        crossover_point = random.randint(0, len(list(child1.EA.phenotype.items()))-2)
+        if len(list(child1.EA.phenotype.items())) <= len(list(child2.EA.phenotype.items())):
+            smallest = child1
+            largest = child2
+        else:
+            smallest = child2
+            largest = child1
+        crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))-2)
         count = 0
-        for key in child1.EA.phenotype:
+        for key in smallest.EA.phenotype:
             if count <= crossover_point:
-                # Dont swap the fitness metrics
-                temp_value = child1.EA.phenotype[key]
-                child1.EA.phenotype[key] = child2.EA.phenotype[key]
-                child2.EA.phenotype[key] = temp_value
+                temp_value = smallest.EA.phenotype[key]
+                smallest.EA.phenotype[key] = largest.EA.phenotype[key]
+                largest.EA.phenotype[key] = temp_value
             count += 1
+        child1 = smallest
+        child2 = largest
         child1.EA.rectify_phenotype()
         child2.EA.rectify_phenotype()
         child1.phenotype = child1.EA.phenotype
         child2.phenotype = child2.EA.phenotype
-        return [child1, child2]
+        return child1, child2
 
-    def crossover_ge(self, parent_one, parent_two):
+    def two_point_crossover_ga(self, parent_one, parent_two):
+        child1 = parent_one
+        child2 = parent_two
+        if len(list(child1.EA.phenotype.items())) <= len(list(child2.EA.phenotype.items())):
+            smallest = child1
+            largest = child2
+        else:
+            smallest = child2
+            largest = child1
+        first_crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))-2)
+        second_crossover_point = random.randint(first_crossover_point+1, len(list(child1.EA.phenotype.items()))-1)
+        count = first_crossover_point
+        for key in smallest.EA.phenotype:
+            if count <= second_crossover_point:
+                temp_value = smallest.EA.phenotype[key]
+                smallest.EA.phenotype[key] = largest.EA.phenotype[key]
+                largest.EA.phenotype[key] = temp_value
+            count += 1
+        child1 = smallest
+        child2 = largest
+        child1.EA.rectify_phenotype()
+        child2.EA.rectify_phenotype()
+        child1.phenotype = child1.EA.phenotype
+        child2.phenotype = child2.EA.phenotype
+        return child1, child2
+    
+    def one_point_crossover_ge(self, parent_one, parent_two):
         '''
-        The crossover function for GE. This is the same function as it is for GA,
+        The one point crossover function for GE. This is the same function as it is for GA,
         However, determining the crossover point is different, as opposed to GA, 
         in GE the genotype is seperate to the phenotype.
         
@@ -607,7 +678,26 @@ class NeuvoBuilder():
         child2.EA.rectify_phenotype()
         child1.phenotype = child1.EA.phenotype
         child2.phenotype = child2.EA.phenotype
-        return [child1, child2]
+        return child1, child2
+
+    def two_point_crossover_ge(self, parent_one, parent_two):
+        child1 = parent_one
+        child2 = parent_two
+        first_crossover_point = random.randint(0, len(list(child1.EA.genotype))-2)
+        second_crossover_point = random.randint(first_crossover_point, len(list(child1.EA.genotype))-1)
+        count = first_crossover_point
+        for i in range(len(child1.EA.genotype)-1):
+            if count <= second_crossover_point:
+                # Dont swap the fitness metrics
+                temp_value = child1.EA.genotype[i]
+                child1.EA.genotype[i] = child2.EA.genotype[i]
+                child2.EA.genotype[i] = temp_value
+            count += 1
+        child1.EA.rectify_phenotype()
+        child2.EA.rectify_phenotype()
+        child1.phenotype = child1.EA.phenotype
+        child2.phenotype = child2.EA.phenotype
+        return child1, child2
 
     def mutate(self):
         '''
@@ -660,9 +750,8 @@ class NeuvoBuilder():
         for classification depending on the shape of the inputted data (ANN/CNN).
         
         Parameters:
-            insertions (list(dict)) : Insertions allow for users to insert a phenotype if running with GA set,
-                                      or input a genotype if running with GE set. These insertions allow the user
-                                      to include a 'prior' best network should they have one.
+            insertions (neuro_objects) : Insertions allow for users to insert a genotype/phenotype. These insertions allow the user
+                                      to restart their run or include a 'prior' best network should they have one.
             elite_mode (bool) : This variable determines whether the elite individual ie the fittest individual, should
                                 automatically be cloned into the next generation.
                                 
@@ -718,6 +807,18 @@ class NeuvoBuilder():
             
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         self.catch_eco()
+        return self
+    
+    def save_phenotypes(self):
+        pop_to_save = []
+        for individual in self.population:
+            if self.type == 'ga':
+                pop_to_save.append(individual.EA.phenotype)
+            elif self.type == 'ge':
+                pop_to_save.append(individual.EA.genotype)
+        with open('individuals_saved.txt', 'a') as output_file:
+            output_file.write(json.dumps(pop_to_save))
+            output_file.write('\n')
         return self
 
     def pop_recalibrate(self):
@@ -797,6 +898,7 @@ class NeuvoBuilder():
             output_file (str) : The user defined name they would like the directory of the output file to be.
                                 Files are stored as './Results/-output_file-'
         '''
+        self.save_phenotypes()
         string0 = "Validation accuracy = " + str(elite_individual['validation_accuracy'])
         string00 = "Speed = " + str(elite_individual['speed'])
         string1 = "MAE = " + str(elite_individual['mae'])
