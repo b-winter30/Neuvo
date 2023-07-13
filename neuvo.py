@@ -706,7 +706,6 @@ class NeuvoBuilder():
         self.pop_average_fitness = 0.0
         for individual in self.population:
             if self.fitness_function not in individual.EA.phenotype:
-                print ('This individual doesn\'t have metrics... ', individual.EA.phenotype)
                 if len(individual.shape) > 2:
                     individual.run_cnn()
                 else:
@@ -928,16 +927,10 @@ class NeuvoBuilder():
                             catch = True
                     self.which_fittest()
                     if self.fittest.EA.phenotype.get(self.fitness_function) > elite_fitness:
-                        print ('Elite individual = ', elite_individual)
-                        print ('Elite fitness = ', elite_fitness)
                         elite_individual = self.fittest.EA.phenotype
                         elite_fitness = elite_individual[self.fitness_function]
-                        print ('Elite individual = ', elite_individual)
-                        print ('Elite fitness = ', elite_fitness)
                     #Every 50th generation, save the fittest network in a file.
                     if i % 50 == 0 or i == 1 or catch:
-                        print ('Elite individual before checkpoint = ', elite_individual)
-                        print ('Elite fitness before checkpoint = ', elite_fitness)
                         self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
                     plot_generation.append(i)
                     plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
