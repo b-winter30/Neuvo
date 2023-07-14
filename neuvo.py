@@ -447,6 +447,7 @@ class NeuvoBuilder():
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
+        print ('self fittest after selection ... ', self.fittest.EA.phenotype)
         return self
 
     def roulette_selection(self):
@@ -801,10 +802,9 @@ class NeuvoBuilder():
                     individual.run_ann()
 
             if individual.EA.phenotype.get(self.fitness_function) >= fittest_val:
-                self.fittest = individual
+                self.fittest = copy.copy(individual)
                 fittest_val = individual.EA.phenotype.get(self.fitness_function)
                 self.pop_average_fitness += fittest_val
-            
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         self.catch_eco()
         return self
@@ -869,6 +869,7 @@ class NeuvoBuilder():
             elite_individual (dic) : The phenotype of the best performing individual seen throughout
                                                         the evolutionary process so far.
         '''
+        
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write('FINAL OUTPUT' + "\n")
             fd.write('' + 'Hidden layers,' + 'Nodes,' + 'Activation functions,' + 'Optimiser,' +
@@ -1030,15 +1031,15 @@ class NeuvoBuilder():
                     self.which_fittest()
                     if self.fittest.EA.phenotype.get(self.fitness_function) > elite_fitness:
                         elite_individual = self.fittest.EA.phenotype
-                        elite_fitness = elite_individual[self.fitness_function]
+                        elite_fitness = elite_individual.get(self.fitness_function)
                     #Every 50th generation, save the fittest network in a file.
-                    if i % 50 == 0 or i == 1 or catch:
+                    if i % 2 == 0 or i == 1 or catch:
                         self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
                     plot_generation.append(i)
                     plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
                     plot_elite_fitness.append(elite_fitness)  
                     plot_avg_fitness.append(self.pop_average_fitness)  
-
+                    print ('elite_individual after appending fitness to lists ... ', elite_individual)
                     console.log(f"Generation {i} complete...")
                     if catch == True: 
                         break

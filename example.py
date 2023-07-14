@@ -39,7 +39,7 @@ if __name__ == '__main__':
     #Neuvo.grammar_file='basic_grammar.txt'
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
-    Neuvo.population_size=4
+    Neuvo.population_size=10
     Neuvo.mutation_rate=0.1
     Neuvo.cloning_rate=0.33
     Neuvo.max_generations=500

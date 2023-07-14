@@ -67,7 +67,7 @@ class GA:
             for k in entries_to_remove:
                 self.phenotype.pop(k, None)
         self.genotype = self.phenotype
-        return self.phenotype
+        return self
 
     
     def rectify_phenotype(self):
@@ -127,7 +127,6 @@ class GA:
         self.genotype = self.phenotype
         return self
     
-    @staticmethod
     def plus_minus_mutation_for_beta_dis(self, key):
         choices = [-1, 1]
         self.phenotype[key] = self.phenotype[key] + random.choice(choices)
