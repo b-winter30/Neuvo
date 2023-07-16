@@ -421,16 +421,18 @@ class NeuvoBuilder():
         '''
 
         '''
+        
         assert tournament_size < len(self.population), "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
         
         if self.elite_mode:
-            cloned_pop.append(self.fittest)
+            cloned_pop.append(copy.copy(self.fittest))
         n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
 
         cloned_pop.extend(population_copy[:n])
+        
         reproducible_pop = population_copy[n:]
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
@@ -442,12 +444,14 @@ class NeuvoBuilder():
             j += 1
         new_pop = []
         temp_pop = retrain_pop
+        for indi in cloned_pop:
+            print ('before retrain = ', indi.EA.phenotype.get(self.fitness_function))
         temp_pop = self.retrain_pop(retrain_pop)
-        
+        for indi in cloned_pop:
+            print ('after retrain = ', indi.EA.phenotype.get(self.fitness_function))
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
-        print ('self fittest after selection ... ', self.fittest.EA.phenotype)
         return self
 
     def roulette_selection(self):
@@ -456,7 +460,7 @@ class NeuvoBuilder():
         '''
         cloned_pop = []
         if self.elite_mode:
-            cloned_pop.append(self.fittest)
+            cloned_pop.append(copy.copy(self.fittest))
         population_copy = copy.copy(self.population)
         phenotype_list = []
         for individual in population_copy:
@@ -792,22 +796,23 @@ class NeuvoBuilder():
         This function discovers the fittest individual in the population, and saves the fittest individual as self.fittest.
         It also discovers the average fitness of the population and saves this as self.pop_average_fitness.
         '''
-        fittest_val = 0.0
+        fittest_val = -1.0
+        fittest_of_gen = None
         self.pop_average_fitness = 0.0
         for individual in self.population:
-            if self.fitness_function not in individual.EA.phenotype:
-                if len(individual.shape) > 2:
-                    individual.run_cnn()
-                else:
-                    individual.run_ann()
-
-            if individual.EA.phenotype.get(self.fitness_function) >= fittest_val:
-                self.fittest = copy.copy(individual)
+            if self.fittest is None:
+                self.fittest = individual
+            print ('individual in whichfittest = ', individual.EA.phenotype.get(self.fitness_function))
+            if individual.EA.phenotype.get(self.fitness_function) > fittest_val:
+                fittest_of_gen = individual
                 fittest_val = individual.EA.phenotype.get(self.fitness_function)
                 self.pop_average_fitness += fittest_val
+                if fittest_of_gen.EA.phenotype.get(self.fitness_function) > self.fittest.EA.phenotype.get(self.fitness_function):
+                    self.fittest = fittest_of_gen
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         self.catch_eco()
-        return self
+        print ('self.fittest = ', self.fittest.EA.phenotype.get(self.fitness_function))
+        return fittest_of_gen
     
     def save_phenotypes(self):
         pop_to_save = []
@@ -831,9 +836,9 @@ class NeuvoBuilder():
         the population.
         '''
         self.catch_eco()
-        while self.fittest.phenotype['population size'] > len(self.population):
+        while self.fittest.EA.phenotype['population size'] > len(self.population):
             insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
-                                       fittest=self.fittest.phenotype, genotype=self.fittest.phenotype, verbose=self.verbose,
+                                       fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
                                        gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
             if len(insertion.shape) > 2:
                 insertion.run_cnn()
@@ -849,7 +854,7 @@ class NeuvoBuilder():
                 sorted_pop.pop()
             for phenotype in sorted_pop:
                 insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
-                                           fittest=self.fittest.phenotype, genotype=phenotype, verbose=self.verbose,
+                                           fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
                                            gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 if len(insertion.shape) > 2:
                     insertion.run_cnn()
@@ -1014,8 +1019,6 @@ class NeuvoBuilder():
         assert self.max_generations > 0, 'Maximum number of generations must be > 0'
         assert verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
         plot_generation, plot_best_fitness, plot_elite_fitness, plot_elite_fitness, plot_avg_fitness = ([] for i in range(5))
-        elite_individual = None
-        elite_fitness = 0.0
         output_file = self.dataset_name+'_'+str(self.type)+'_p_'+str(self.population_size)+'_mr_'+str(self.mutation_rate)+'_cr_'+str(self.cloning_rate)+'_eco_'+str(self.eco)
         with console.status("[bold green]Running through generations...") as status:
             i = 1
@@ -1028,18 +1031,15 @@ class NeuvoBuilder():
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
-                    self.which_fittest()
-                    if self.fittest.EA.phenotype.get(self.fitness_function) > elite_fitness:
-                        elite_individual = self.fittest.EA.phenotype
-                        elite_fitness = elite_individual.get(self.fitness_function)
+                    fittest_of_gen = self.which_fittest()
                     #Every 50th generation, save the fittest network in a file.
                     if i % 2 == 0 or i == 1 or catch:
-                        self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
+                        self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                     plot_generation.append(i)
-                    plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
-                    plot_elite_fitness.append(elite_fitness)  
+                    plot_best_fitness.append(fittest_of_gen.EA.phenotype.get(self.fitness_function))  
+                    plot_elite_fitness.append(self.fittest.EA.phenotype.get(self.fitness_function))  
                     plot_avg_fitness.append(self.pop_average_fitness)  
-                    print ('elite_individual after appending fitness to lists ... ', elite_individual)
+                    print ('elite_individual after appending fitness to lists ... ', self.fittest.EA.phenotype)
                     console.log(f"Generation {i} complete...")
                     if catch == True: 
                         break
@@ -1050,10 +1050,10 @@ class NeuvoBuilder():
                 global highest
                 highest = 0
             except KeyboardInterrupt:
-                self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
+                self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                 self.plot(generation=plot_generation, best_fitness=plot_best_fitness, elite_fitness=plot_elite_fitness, 
                             avg_fitness=plot_avg_fitness, output_file=output_file)
-            self.output_results_into_csv(output_file, elite_individual)
+            self.output_results_into_csv(output_file, self.fittest.EA.phenotype)
         completion_message = '***Evolution complete***'
         print (completion_message)
         gc.collect()
