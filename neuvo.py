@@ -214,6 +214,7 @@ class Neuroevolution:
         self.phenotype = self.EA.phenotype
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
+        del self.model
         return None
     
     def build_cnn_custom_architecture(self):
@@ -297,7 +298,7 @@ class Neuroevolution:
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
         self.phenotype = self.EA.phenotype
-        #queue.put(self.phenotype)
+        del self.model
         return None
 
     def parse_params(self, evo_param_file):
@@ -428,11 +429,10 @@ class NeuvoBuilder():
         cloned_pop = []
         
         if self.elite_mode:
-            cloned_pop.append(copy.copy(self.fittest))
+            cloned_pop.append(copy.deepcopy(self.fittest))
         n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
 
         cloned_pop.extend(population_copy[:n])
-        
         reproducible_pop = population_copy[n:]
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
@@ -444,11 +444,7 @@ class NeuvoBuilder():
             j += 1
         new_pop = []
         temp_pop = retrain_pop
-        for indi in cloned_pop:
-            print ('before retrain = ', indi.EA.phenotype.get(self.fitness_function))
         temp_pop = self.retrain_pop(retrain_pop)
-        for indi in cloned_pop:
-            print ('after retrain = ', indi.EA.phenotype.get(self.fitness_function))
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
@@ -534,12 +530,14 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
-        parent_one.EA.remove_metrics()
-        parent_two.EA.remove_metrics()
+        p1 = copy.deepcopy(parent_one)
+        p2 = copy.deepcopy(parent_two)
+        p1.EA.remove_metrics()
+        p2.EA.remove_metrics()
         if self.type == 'ge':
-            children = self.crossover_ge(parent_one=parent_one, parent_two=parent_two)
+            children = self.crossover_ge(parent_one=p1, parent_two=p2)
         elif self.type == 'ga':
-            children = self.crossover_ga(parent_one=parent_one, parent_two=parent_two)
+            children = self.crossover_ga(parent_one=p1, parent_two=p2)
         return children
     
     def crossover_ga(self, parent_one, parent_two):
@@ -557,10 +555,12 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
+        p1 = parent_one
+        p2 = parent_two
         if self.crossover_method == 'one_point':
-            child1, child2 = self.one_point_crossover_ga(parent_one=parent_one, parent_two=parent_two)
+            child1, child2 = self.one_point_crossover_ga(parent_one=p1, parent_two=p2)
         elif self.crossover_method == 'two_point':
-            child1, child2 = self.two_point_crossover_ga(parent_one=parent_one, parent_two=parent_two)
+            child1, child2 = self.two_point_crossover_ga(parent_one=p1, parent_two=p2)
         return [child1, child2]
 
     def crossover_ge(self, parent_one, parent_two):
@@ -578,10 +578,12 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
+        p1 = parent_one
+        p2 = parent_two
         if self.crossover_method == 'one_point':
-            child1, child2 = self.one_point_crossover_ge(parent_one=parent_one, parent_two=parent_two)
+            child1, child2 = self.one_point_crossover_ge(parent_one=p1, parent_two=p2)
         elif self.crossover_method == 'two_point':
-            child1, child2 = self.two_point_crossover_ge(parent_one=parent_one, parent_two=parent_two)
+            child1, child2 = self.two_point_crossover_ge(parent_one=p1, parent_two=p2)
         return [child1, child2]
 
     def one_point_crossover_ga(self, parent_one, parent_two):
@@ -799,10 +801,10 @@ class NeuvoBuilder():
         fittest_val = -1.0
         fittest_of_gen = None
         self.pop_average_fitness = 0.0
+        
         for individual in self.population:
             if self.fittest is None:
                 self.fittest = individual
-            print ('individual in whichfittest = ', individual.EA.phenotype.get(self.fitness_function))
             if individual.EA.phenotype.get(self.fitness_function) > fittest_val:
                 fittest_of_gen = individual
                 fittest_val = individual.EA.phenotype.get(self.fitness_function)
@@ -811,7 +813,6 @@ class NeuvoBuilder():
                     self.fittest = fittest_of_gen
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         self.catch_eco()
-        print ('self.fittest = ', self.fittest.EA.phenotype.get(self.fitness_function))
         return fittest_of_gen
     
     def save_phenotypes(self):
@@ -1039,10 +1040,10 @@ class NeuvoBuilder():
                     plot_best_fitness.append(fittest_of_gen.EA.phenotype.get(self.fitness_function))  
                     plot_elite_fitness.append(self.fittest.EA.phenotype.get(self.fitness_function))  
                     plot_avg_fitness.append(self.pop_average_fitness)  
-                    print ('elite_individual after appending fitness to lists ... ', self.fittest.EA.phenotype)
                     console.log(f"Generation {i} complete...")
                     if catch == True: 
                         break
+                    gc.collect()
                     i += 1   
                 if plot:
                     self.plot(generation=plot_generation, best_fitness=plot_best_fitness, elite_fitness=plot_elite_fitness, 
