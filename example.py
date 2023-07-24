@@ -10,9 +10,19 @@ def load_cnn_data(dir_path):
         cifar10 = tf.keras.datasets.cifar10
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
         x_train, x_test = x_train / 255.0, x_test / 255.0
-        
-        X = np.concatenate((x_train, x_test), axis=0)
-        Y = np.concatenate((y_train, y_test), axis=0)
+        df = pd.DataFrame(list(zip(x_train, y_train)), columns =['Image', 'label']) 
+        val = df.sample(frac=0.1)
+        X_train = np.array([ i for i in list(val['Image'])])
+        Y_train = np.array([ [i[0]] for i in list(val['label'])])
+        test = pd.DataFrame(list(zip(x_test, y_test)), columns =['Image', 'label']) 
+        val_test = test.sample(frac=0.1)
+        X_test = np.array([ i for i in list(val_test['Image'])])
+        Y_test = np.array([ [i[0]] for i in list(val_test['label'])])
+        X = np.concatenate((X_train, X_test), axis=0)
+        Y = np.concatenate((Y_train, Y_test), axis=0)
+
+    print (len(X))
+    print (len(Y))
     dataX = X
     dataY = Y
     return [dataX, dataY]
@@ -33,16 +43,16 @@ if __name__ == '__main__':
     parser.set_defaults(eco=False)
     args = vars(parser.parse_args())
     
-    data = load_1d_data(args["dataset"])
+    data = load_cnn_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
     #Neuvo.grammar_file='basic_grammar.txt'
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
-    Neuvo.population_size=10
+    Neuvo.population_size=3
     Neuvo.mutation_rate=0.1
     Neuvo.cloning_rate=0.33
-    Neuvo.max_generations=500
+    Neuvo.max_generations=1
     Neuvo.verbose=0
 
     Neuvo.dataset_name = args["dataset"]
