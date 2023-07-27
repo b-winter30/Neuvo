@@ -7,6 +7,7 @@ import os
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import multiprocessing
+import json
 from rich.console import Console
 import copy
 import gc
@@ -19,9 +20,9 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 from Metrics import f1_m, precision_m, recall_m
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout 
-from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout
+from tensorflow.keras.layers import MaxPooling2D, BatchNormalization
 from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras.callbacks import EarlyStopping, TerminateOnNaN
 from tensorflow.keras.metrics import MeanAbsoluteError, RootMeanSquaredError, Precision, Recall
@@ -213,41 +214,73 @@ class Neuroevolution:
         self.phenotype = self.EA.phenotype
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
+        del self.model
         return None
     
     def build_cnn_custom_architecture(self):
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
-            model.add(Conv2D(self.EA.phenotype['nodes'], kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][0]))
+            model.add(BatchNormalization())
             model.add(MaxPooling2D(pool_size=(2, 2)))
-            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0]))
-            model.add(MaxPooling2D(pool_size=(2, 2)))
-            model.add(Flatten())
+
             for i in range(1, self.EA.phenotype['hidden layers']):
                 self.string = self.EA.phenotype['activation functions'][i]
-                model.add(Dense(self.EA.phenotype['nodes']*4, activation=self.EA.phenotype['activation functions'][i]))
+                model.add(Conv2D(self.EA.phenotype['nodes'], (3, 3), padding='same', activation=self.EA.phenotype['activation functions'][i]))
+                model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Flatten())
             model.add(Dropout(0.2))
-            model.add(Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
+
+            model.add(Dense(1024, activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(Dropout(0.2))
+
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
             self.string = self.EA.phenotype['activation functions'][0]
             get_custom_objects().update({'custom': self.custom})
-            shape = self.dataX.shape[1:]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
-            model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.custom, input_shape=self.dataX.shape[1:]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
             for i in range(1, self.EA.phenotype['hidden layers']):
                 self.string = self.EA.phenotype['activation functions'][i]
-                model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
-                model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-            self.string = self.EA.phenotype['activation functions'][-1]
-            model.add(tf.keras.layers.Flatten())
-            model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-            model.add(tf.keras.layers.Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
-                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
+                model.add(Conv2D(self.EA.phenotype['nodes'], (3, 3), padding='same', activation=self.custom))
+                model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            self.string = self.EA.phenotype['activation functions'][-2]
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Flatten())
+            model.add(Dropout(0.2))
+
+            model.add(Dense(1024, activation=self.custom))
+            model.add(Dropout(0.2))
+
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+                       metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
     def run_cnn(self, queue=None):
@@ -268,7 +301,7 @@ class Neuroevolution:
             los, acc, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
-            f1 += 2*(rec*prec)/(rec+prec)
+            f1 += 2*(rec*prec)/1+(rec+prec)
             precision += prec
             recall += rec
             mae += ma
@@ -296,7 +329,7 @@ class Neuroevolution:
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
         self.phenotype = self.EA.phenotype
-        #queue.put(self.phenotype)
+        del self.model
         return None
 
     def parse_params(self, evo_param_file):
@@ -420,13 +453,14 @@ class NeuvoBuilder():
         '''
 
         '''
+        
         assert tournament_size < len(self.population), "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
         
         if self.elite_mode:
-            cloned_pop.append(self.fittest)
+            cloned_pop.append(copy.deepcopy(self.fittest))
         n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
 
         cloned_pop.extend(population_copy[:n])
@@ -442,7 +476,6 @@ class NeuvoBuilder():
         new_pop = []
         temp_pop = retrain_pop
         temp_pop = self.retrain_pop(retrain_pop)
-        
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
@@ -454,7 +487,7 @@ class NeuvoBuilder():
         '''
         cloned_pop = []
         if self.elite_mode:
-            cloned_pop.append(self.fittest)
+            cloned_pop.append(copy.copy(self.fittest))
         population_copy = copy.copy(self.population)
         phenotype_list = []
         for individual in population_copy:
@@ -528,12 +561,14 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
-        parent_one.EA.remove_metrics()
-        parent_two.EA.remove_metrics()
+        p1 = copy.deepcopy(parent_one)
+        p2 = copy.deepcopy(parent_two)
+        p1.EA.remove_metrics()
+        p2.EA.remove_metrics()
         if self.type == 'ge':
-            children = self.crossover_ge(parent_one=parent_one, parent_two=parent_two)
+            children = self.crossover_ge(parent_one=p1, parent_two=p2)
         elif self.type == 'ga':
-            children = self.crossover_ga(parent_one=parent_one, parent_two=parent_two)
+            children = self.crossover_ga(parent_one=p1, parent_two=p2)
         return children
     
     def crossover_ga(self, parent_one, parent_two):
@@ -542,6 +577,48 @@ class NeuvoBuilder():
         However, determining the crossover point is different, as opposed to GE, 
         in GA the genotype is the same as the phenotype.
         
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
+        p1 = parent_one
+        p2 = parent_two
+        if self.crossover_method == 'one_point':
+            child1, child2 = self.one_point_crossover_ga(parent_one=p1, parent_two=p2)
+        elif self.crossover_method == 'two_point':
+            child1, child2 = self.two_point_crossover_ga(parent_one=p1, parent_two=p2)
+        return [child1, child2]
+
+    def crossover_ge(self, parent_one, parent_two):
+        '''
+        The crossover function for GE. This is the same function as it is for GA,
+        However, determining the crossover point is different, as opposed to GA, 
+        in GE the genotype is seperate to the phenotype.
+        
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
+        p1 = parent_one
+        p2 = parent_two
+        if self.crossover_method == 'one_point':
+            child1, child2 = self.one_point_crossover_ge(parent_one=p1, parent_two=p2)
+        elif self.crossover_method == 'two_point':
+            child1, child2 = self.two_point_crossover_ge(parent_one=p1, parent_two=p2)
+        return [child1, child2]
+
+    def one_point_crossover_ga(self, parent_one, parent_two):
+        '''
         Here we determine a random gene in the genotype to be the 'slice' or 
         crossover point in which the genes between 0 and the crossover point
         from both parents will be recombinated and placed into two offspring.
@@ -555,27 +632,59 @@ class NeuvoBuilder():
                                                            objects. These will then be passed to
                                                            retrain.
         '''
-        
         child1 = parent_one
         child2 = parent_two
-        crossover_point = random.randint(0, len(list(child1.EA.phenotype.items()))-2)
+        if len(list(child1.EA.phenotype.items())) <= len(list(child2.EA.phenotype.items())):
+            smallest = child1
+            largest = child2
+        else:
+            smallest = child2
+            largest = child1
+        crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))-2)
         count = 0
-        for key in child1.EA.phenotype:
+        for key in smallest.EA.phenotype:
             if count <= crossover_point:
-                # Dont swap the fitness metrics
-                temp_value = child1.EA.phenotype[key]
-                child1.EA.phenotype[key] = child2.EA.phenotype[key]
-                child2.EA.phenotype[key] = temp_value
+                temp_value = smallest.EA.phenotype[key]
+                smallest.EA.phenotype[key] = largest.EA.phenotype[key]
+                largest.EA.phenotype[key] = temp_value
             count += 1
+        child1 = smallest
+        child2 = largest
         child1.EA.rectify_phenotype()
         child2.EA.rectify_phenotype()
         child1.phenotype = child1.EA.phenotype
         child2.phenotype = child2.EA.phenotype
-        return [child1, child2]
+        return child1, child2
 
-    def crossover_ge(self, parent_one, parent_two):
+    def two_point_crossover_ga(self, parent_one, parent_two):
+        child1 = parent_one
+        child2 = parent_two
+        if len(list(child1.EA.phenotype.items())) <= len(list(child2.EA.phenotype.items())):
+            smallest = child1
+            largest = child2
+        else:
+            smallest = child2
+            largest = child1
+        first_crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))-2)
+        second_crossover_point = random.randint(first_crossover_point+1, len(list(child1.EA.phenotype.items()))-1)
+        count = first_crossover_point
+        for key in smallest.EA.phenotype:
+            if count <= second_crossover_point:
+                temp_value = smallest.EA.phenotype[key]
+                smallest.EA.phenotype[key] = largest.EA.phenotype[key]
+                largest.EA.phenotype[key] = temp_value
+            count += 1
+        child1 = smallest
+        child2 = largest
+        child1.EA.rectify_phenotype()
+        child2.EA.rectify_phenotype()
+        child1.phenotype = child1.EA.phenotype
+        child2.phenotype = child2.EA.phenotype
+        return child1, child2
+    
+    def one_point_crossover_ge(self, parent_one, parent_two):
         '''
-        The crossover function for GE. This is the same function as it is for GA,
+        The one point crossover function for GE. This is the same function as it is for GA,
         However, determining the crossover point is different, as opposed to GA, 
         in GE the genotype is seperate to the phenotype.
         
@@ -607,7 +716,26 @@ class NeuvoBuilder():
         child2.EA.rectify_phenotype()
         child1.phenotype = child1.EA.phenotype
         child2.phenotype = child2.EA.phenotype
-        return [child1, child2]
+        return child1, child2
+
+    def two_point_crossover_ge(self, parent_one, parent_two):
+        child1 = parent_one
+        child2 = parent_two
+        first_crossover_point = random.randint(0, len(list(child1.EA.genotype))-2)
+        second_crossover_point = random.randint(first_crossover_point, len(list(child1.EA.genotype))-1)
+        count = first_crossover_point
+        for i in range(len(child1.EA.genotype)-1):
+            if count <= second_crossover_point:
+                # Dont swap the fitness metrics
+                temp_value = child1.EA.genotype[i]
+                child1.EA.genotype[i] = child2.EA.genotype[i]
+                child2.EA.genotype[i] = temp_value
+            count += 1
+        child1.EA.rectify_phenotype()
+        child2.EA.rectify_phenotype()
+        child1.phenotype = child1.EA.phenotype
+        child2.phenotype = child2.EA.phenotype
+        return child1, child2
 
     def mutate(self):
         '''
@@ -660,9 +788,8 @@ class NeuvoBuilder():
         for classification depending on the shape of the inputted data (ANN/CNN).
         
         Parameters:
-            insertions (list(dict)) : Insertions allow for users to insert a phenotype if running with GA set,
-                                      or input a genotype if running with GE set. These insertions allow the user
-                                      to include a 'prior' best network should they have one.
+            insertions (neuro_objects) : Insertions allow for users to insert a genotype/phenotype. These insertions allow the user
+                                      to restart their run or include a 'prior' best network should they have one.
             elite_mode (bool) : This variable determines whether the elite individual ie the fittest individual, should
                                 automatically be cloned into the next generation.
                                 
@@ -702,22 +829,33 @@ class NeuvoBuilder():
         This function discovers the fittest individual in the population, and saves the fittest individual as self.fittest.
         It also discovers the average fitness of the population and saves this as self.pop_average_fitness.
         '''
-        fittest_val = 0.0
+        fittest_val = -1.0
+        fittest_of_gen = None
         self.pop_average_fitness = 0.0
+        
         for individual in self.population:
-            if self.fitness_function not in individual.EA.phenotype:
-                if len(individual.shape) > 2:
-                    individual.run_cnn()
-                else:
-                    individual.run_ann()
-
-            if individual.EA.phenotype.get(self.fitness_function) >= fittest_val:
+            if self.fittest is None:
                 self.fittest = individual
+            if individual.EA.phenotype.get(self.fitness_function) > fittest_val:
+                fittest_of_gen = individual
                 fittest_val = individual.EA.phenotype.get(self.fitness_function)
                 self.pop_average_fitness += fittest_val
-            
+                if fittest_of_gen.EA.phenotype.get(self.fitness_function) > self.fittest.EA.phenotype.get(self.fitness_function):
+                    self.fittest = fittest_of_gen
         self.pop_average_fitness = self.pop_average_fitness / len(self.population) 
         self.catch_eco()
+        return fittest_of_gen
+    
+    def save_phenotypes(self):
+        pop_to_save = []
+        for individual in self.population:
+            if self.type == 'ga':
+                pop_to_save.append(individual.EA.phenotype)
+            elif self.type == 'ge':
+                pop_to_save.append(individual.EA.genotype)
+        with open('individuals_saved.txt', 'a') as output_file:
+            output_file.write(json.dumps(pop_to_save))
+            output_file.write('\n')
         return self
 
     def pop_recalibrate(self):
@@ -730,9 +868,9 @@ class NeuvoBuilder():
         the population.
         '''
         self.catch_eco()
-        while self.fittest.phenotype['population size'] > len(self.population):
+        while self.fittest.EA.phenotype['population size'] > len(self.population):
             insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
-                                       fittest=self.fittest.phenotype, genotype=self.fittest.phenotype, verbose=self.verbose,
+                                       fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
                                        gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
             if len(insertion.shape) > 2:
                 insertion.run_cnn()
@@ -748,7 +886,7 @@ class NeuvoBuilder():
                 sorted_pop.pop()
             for phenotype in sorted_pop:
                 insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
-                                           fittest=self.fittest.phenotype, genotype=phenotype, verbose=self.verbose,
+                                           fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
                                            gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 if len(insertion.shape) > 2:
                     insertion.run_cnn()
@@ -768,6 +906,7 @@ class NeuvoBuilder():
             elite_individual (dic) : The phenotype of the best performing individual seen throughout
                                                         the evolutionary process so far.
         '''
+        
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write('FINAL OUTPUT' + "\n")
             fd.write('' + 'Hidden layers,' + 'Nodes,' + 'Activation functions,' + 'Optimiser,' +
@@ -797,6 +936,7 @@ class NeuvoBuilder():
             output_file (str) : The user defined name they would like the directory of the output file to be.
                                 Files are stored as './Results/-output_file-'
         '''
+        self.save_phenotypes()
         string0 = "Validation accuracy = " + str(elite_individual['validation_accuracy'])
         string00 = "Speed = " + str(elite_individual['speed'])
         string1 = "MAE = " + str(elite_individual['mae'])
@@ -911,8 +1051,6 @@ class NeuvoBuilder():
         assert self.max_generations > 0, 'Maximum number of generations must be > 0'
         assert verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
         plot_generation, plot_best_fitness, plot_elite_fitness, plot_elite_fitness, plot_avg_fitness = ([] for i in range(5))
-        elite_individual = None
-        elite_fitness = 0.0
         output_file = self.dataset_name+'_'+str(self.type)+'_p_'+str(self.population_size)+'_mr_'+str(self.mutation_rate)+'_cr_'+str(self.cloning_rate)+'_eco_'+str(self.eco)
         with console.status("[bold green]Running through generations...") as status:
             i = 1
@@ -925,21 +1063,18 @@ class NeuvoBuilder():
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
-                    self.which_fittest()
-                    if self.fittest.EA.phenotype.get(self.fitness_function) > elite_fitness:
-                        elite_individual = self.fittest.EA.phenotype
-                        elite_fitness = elite_individual[self.fitness_function]
+                    fittest_of_gen = self.which_fittest()
                     #Every 50th generation, save the fittest network in a file.
-                    if i % 50 == 0 or i == 1 or catch:
-                        self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
+                    if i % 2 == 0 or i == 1 or catch:
+                        self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                     plot_generation.append(i)
-                    plot_best_fitness.append(self.fittest.EA.phenotype[self.fitness_function])  
-                    plot_elite_fitness.append(elite_fitness)  
+                    plot_best_fitness.append(fittest_of_gen.EA.phenotype.get(self.fitness_function))  
+                    plot_elite_fitness.append(self.fittest.EA.phenotype.get(self.fitness_function))  
                     plot_avg_fitness.append(self.pop_average_fitness)  
-
                     console.log(f"Generation {i} complete...")
                     if catch == True: 
                         break
+                    gc.collect()
                     i += 1   
                 if plot:
                     self.plot(generation=plot_generation, best_fitness=plot_best_fitness, elite_fitness=plot_elite_fitness, 
@@ -947,10 +1082,10 @@ class NeuvoBuilder():
                 global highest
                 highest = 0
             except KeyboardInterrupt:
-                self.checkpoint_handler(str(i), elite_individual=elite_individual, output_file=output_file)
+                self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                 self.plot(generation=plot_generation, best_fitness=plot_best_fitness, elite_fitness=plot_elite_fitness, 
                             avg_fitness=plot_avg_fitness, output_file=output_file)
-            self.output_results_into_csv(output_file, elite_individual)
+            self.output_results_into_csv(output_file, self.fittest.EA.phenotype)
         completion_message = '***Evolution complete***'
         print (completion_message)
         gc.collect()

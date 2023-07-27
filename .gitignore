@@ -1,14 +1,17 @@
 Datasets/*
 Results/*
+__pycache__/*
 
 *.err.*
 *.out.*
+*.txt
 
 *.sh
 
-__pycache__
+
 logs/
 
 *.pyc
 
 evo_params.txt
+example.py

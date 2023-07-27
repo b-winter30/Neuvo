@@ -224,7 +224,7 @@ class GE:
         if len(self.phenotype)-1 > self.genes:
             for k in entries_to_remove:
                 self.phenotype.pop(k, None)
-        return self.phenotype
+        return self
     
     def rectify_phenotype(self):
         '''
