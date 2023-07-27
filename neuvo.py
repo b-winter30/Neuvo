@@ -20,9 +20,9 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 from Metrics import f1_m, precision_m, recall_m
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout 
-from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout
+from tensorflow.keras.layers import MaxPooling2D, BatchNormalization
 from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras.callbacks import EarlyStopping, TerminateOnNaN
 from tensorflow.keras.metrics import MeanAbsoluteError, RootMeanSquaredError, Precision, Recall
@@ -221,35 +221,66 @@ class Neuroevolution:
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
-            model.add(Conv2D(self.EA.phenotype['nodes'], kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][0], input_shape=self.dataX.shape[1:]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][0]))
+            model.add(BatchNormalization())
             model.add(MaxPooling2D(pool_size=(2, 2)))
-            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0]))
-            model.add(MaxPooling2D(pool_size=(2, 2)))
-            model.add(Flatten())
+
             for i in range(1, self.EA.phenotype['hidden layers']):
                 self.string = self.EA.phenotype['activation functions'][i]
-                model.add(Dense(self.EA.phenotype['nodes']*4, activation=self.EA.phenotype['activation functions'][i]))
+                model.add(Conv2D(self.EA.phenotype['nodes'], (3, 3), padding='same', activation=self.EA.phenotype['activation functions'][i]))
+                model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Flatten())
             model.add(Dropout(0.2))
-            model.add(Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
+
+            model.add(Dense(1024, activation=self.EA.phenotype['activation functions'][-2]))
+            model.add(Dropout(0.2))
+
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
             self.string = self.EA.phenotype['activation functions'][0]
             get_custom_objects().update({'custom': self.custom})
-            shape = self.dataX.shape[1:]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
-            model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.custom, input_shape=self.dataX.shape[1:]))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']/2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
             for i in range(1, self.EA.phenotype['hidden layers']):
                 self.string = self.EA.phenotype['activation functions'][i]
-                model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
-                model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-            self.string = self.EA.phenotype['activation functions'][-1]
-            model.add(tf.keras.layers.Flatten())
-            model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-            model.add(tf.keras.layers.Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
-                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
+                model.add(Conv2D(self.EA.phenotype['nodes'], (3, 3), padding='same', activation=self.custom))
+                model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            self.string = self.EA.phenotype['activation functions'][-2]
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), padding='same', activation=self.custom))
+            model.add(BatchNormalization())
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+
+            model.add(Flatten())
+            model.add(Dropout(0.2))
+
+            model.add(Dense(1024, activation=self.custom))
+            model.add(Dropout(0.2))
+
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+                       metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
     def run_cnn(self, queue=None):
@@ -270,7 +301,7 @@ class Neuroevolution:
             los, acc, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
-            f1 += 2*(rec*prec)/(rec+prec)
+            f1 += 2*(rec*prec)/1+(rec+prec)
             precision += prec
             recall += rec
             mae += ma

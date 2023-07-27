@@ -4,8 +4,6 @@ import numpy as np
 import pandas as pd
 
 def load_cnn_data(dir_path):
-    xs = []
-    ys = []
     if 'cifar' in dir_path:
         cifar10 = tf.keras.datasets.cifar10
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
@@ -20,9 +18,6 @@ def load_cnn_data(dir_path):
         Y_test = np.array([ [i[0]] for i in list(val_test['label'])])
         X = np.concatenate((X_train, X_test), axis=0)
         Y = np.concatenate((Y_train, Y_test), axis=0)
-
-    print (len(X))
-    print (len(Y))
     dataX = X
     dataY = Y
     return [dataX, dataY]
@@ -49,10 +44,10 @@ if __name__ == '__main__':
     #Neuvo.grammar_file='basic_grammar.txt'
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
-    Neuvo.population_size=10
-    Neuvo.mutation_rate=0.1
-    Neuvo.cloning_rate=0.33
-    Neuvo.max_generations=500
+    Neuvo.population_size=3
+    Neuvo.mutation_rate=0.0
+    Neuvo.cloning_rate=1.0
+    Neuvo.max_generations=5
     Neuvo.verbose=0
 
     Neuvo.dataset_name = args["dataset"]

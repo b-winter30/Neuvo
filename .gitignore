@@ -14,3 +14,4 @@ logs/
 *.pyc
 
 evo_params.txt
+example.py
