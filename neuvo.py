@@ -230,24 +230,26 @@ class Neuroevolution:
                 self.string = self.EA.phenotype['activation functions'][i]
                 model.add(Dense(self.EA.phenotype['nodes']*4, activation=self.EA.phenotype['activation functions'][i]))
             model.add(Dropout(0.2))
-            model.add(Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
-            
+            model.add(Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-1]))
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
             model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
             self.string = self.EA.phenotype['activation functions'][0]
             get_custom_objects().update({'custom': self.custom})
             shape = self.dataX.shape[1:]
-            model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes']/2, (3, 3), activation=self.custom, input_shape=shape))
-            model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+            model.add(Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom, input_shape=shape))
+            model.add(MaxPooling2D((2, 2)))
+            model.add(Conv2D(self.EA.phenotype['nodes']*2, kernel_size=(3, 3), activation=self.EA.phenotype['activation functions'][0]))
+            model.add(MaxPooling2D(pool_size=(2, 2)))
+            model.add(Flatten())
             for i in range(1, self.EA.phenotype['hidden layers']):
                 self.string = self.EA.phenotype['activation functions'][i]
-                model.add(tf.keras.layers.Conv2D(self.EA.phenotype['nodes'], (3, 3), activation=self.custom))
-                model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+                model.add(Conv2D(self.EA.phenotype['nodes']*4, (3, 3), activation=self.custom))
             self.string = self.EA.phenotype['activation functions'][-1]
-            model.add(tf.keras.layers.Flatten())
-            model.add(tf.keras.layers.Dense(self.EA.phenotype['nodes'], activation=self.EA.phenotype['activation functions'][-2]))
-            model.add(tf.keras.layers.Dense(self.dataY.shape[-1], activation=self.EA.phenotype['activation functions'][-1]))
+            model.add(Dropout(0.2))
+            model.add(Dense(self.EA.phenotype['nodes'], activation=self.custom))
+            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
             model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss=tf.keras.losses.Hinge(),
                         metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
