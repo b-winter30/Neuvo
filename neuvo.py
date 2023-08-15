@@ -14,6 +14,7 @@ import gc
 from GA import GA
 import warnings
 import logging
+from datetime import datetime
 warnings.filterwarnings('ignore') 
 tf.get_logger().setLevel(logging.ERROR)
 config = tf.compat.v1.ConfigProto()
@@ -54,7 +55,8 @@ class Neuroevolution:
         if len(self.shape) > 2:
             self.model = self.build_cnn_custom_architecture()
         else:
-            self.model = self.build_ann_custom_architecture()
+            #self.model = self.build_ann_custom_architecture()
+            self.build_ann_custom_architecture()
         return self
     
     def build_ea(self, genotype_length=32, gene_value=40):
@@ -165,11 +167,14 @@ class Neuroevolution:
             model.add(Dense(units=self.dataY.shape[-1], activation=self.custom))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
+        #self.model = model
         return model
     
-    def run_ann(self, queue=None):
+    def run_ann(self, pop=[]):
         tf.keras.backend.clear_session()
         num_folds = 2
+        model = self.build_ann_custom_architecture()
+        print ('model has been created ')
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
         #log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -177,13 +182,15 @@ class Neuroevolution:
         start = time.time()
         loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
         for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
+            print ('Going through kfold')
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
-            self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
-                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
-            history = self.model.history.history
+            model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
+                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()], use_multiprocessing=True)
+            print ('After fit')
+            history = model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
+            los, acc, f, prec, rec, ma, rms = model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
             f1 += f
@@ -210,12 +217,14 @@ class Neuroevolution:
             'speed' : speed,
             'val_acc_x_f1' : val_acc_x_f1
         }
+        print ('model has been trained ')
         self.EA.phenotype = dict(self.EA.phenotype, **metrics)
         self.phenotype = self.EA.phenotype
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
-        del self.model
-        return None
+        #del self.model
+        pop.append(self)
+        return self
     
     def build_cnn_custom_architecture(self):
         tf.keras.backend.clear_session()
@@ -285,7 +294,7 @@ class Neuroevolution:
 
     def run_cnn(self, queue=None):
         tf.keras.backend.clear_session()
-        num_folds = 2
+        num_folds = 5
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=2)
         start = time.time()
@@ -753,9 +762,29 @@ class NeuvoBuilder():
                     individual.model = individual.build_cnn_custom_architecture()
                     individual.run_cnn()
                 else:
-                    individual.model = individual.build_ann_custom_architecture()
+                    #individual.model = individual.build_ann_custom_architecture()
                     individual.run_ann()
         return self
+
+    def multi_train_ann(self, population):
+        pop = []
+        j = 0
+        left = len(population)
+        cpu_count = multiprocessing.cpu_count()
+        #with multiprocessing.Manager() as manager:
+        #    processes = []
+        while j < len(population):
+            if left < int(cpu_count):
+                cpu_count = left
+            for i in range(cpu_count):
+                print ('in cpu count for loop')
+                pool = multiprocessing.Pool(processes=cpu_count)
+                results = pool.map(population[j].run_ann, pop)
+                pop.append(results)
+                j += 1
+                left -= 1
+        
+        return pop
 
     def retrain_pop(self, population):
         '''
@@ -771,16 +800,25 @@ class NeuvoBuilder():
             pop list(Neuroevolution obj): A subset of the population that has been retrained and ready to be put
                                           back into the population.
         '''
-        pop = []
+        individuals = []
         for individual in population:
             if len(individual.shape) > 2:
                 individual.model = individual.build_cnn_custom_architecture()
                 individual.run_cnn()
             else:
-                individual.model = individual.build_ann_custom_architecture()
-                individual.run_ann()
-            pop.append(individual)
-        return pop
+                print('')
+                #individual.model = individual.build_ann_custom_architecture()
+                #individuals.append(individual)
+                #pop = self.multi_train_ann(population)
+                #individual.run_ann()
+            #pop.append(individual)
+        
+        #for individual in individuals:
+        #    print (individual.EA.phenotype)
+        #for individual in models:
+        self.population = self.multi_train_ann(population)
+        #print (individual)
+        return self.population
 
     def initialise_pop(self, insertions=[], elite_mode=False, grammar_file=None):
         '''
@@ -854,6 +892,7 @@ class NeuvoBuilder():
             elif self.type == 'ge':
                 pop_to_save.append(individual.EA.genotype)
         with open('individuals_saved.txt', 'a') as output_file:
+            output_file.write(self.dataset_name+' '+str(datetime.now()))
             output_file.write(json.dumps(pop_to_save))
             output_file.write('\n')
         return self
@@ -1002,7 +1041,7 @@ class NeuvoBuilder():
         Data loader function.
         
         Parameters:
-            data (list(np.array)) : This should be a list of size 2 containing two numpy arrays,
+            data (list(np.array, np.array)) : This should be a list of size 2 containing two numpy arrays,
                                     one containing training data and one comparing the training labels.
         '''
         dataX = data[0]
@@ -1056,6 +1095,7 @@ class NeuvoBuilder():
             i = 1
             try:
                 while i <= self.max_generations:
+                    print ('Size of population = ', len(self.population))
                     self.selection_choice()
                     self.mutate()
                     if self.eco:
@@ -1065,7 +1105,7 @@ class NeuvoBuilder():
                             catch = True
                     fittest_of_gen = self.which_fittest()
                     #Every 50th generation, save the fittest network in a file.
-                    if i % 2 == 0 or i == 1 or catch:
+                    if i % 5 == 0 or i == 1 or catch:
                         self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                     plot_generation.append(i)
                     plot_best_fitness.append(fittest_of_gen.EA.phenotype.get(self.fitness_function))  
