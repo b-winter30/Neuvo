@@ -109,7 +109,8 @@ class Neuroevolution:
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
             self.model.fit(X_train, Y_train, batch_size=4, epochs=20,
-                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
+                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()],
+                            use_multiprocessing=True)
             history = self.model.history.history
             last_val = history['val_accuracy'].pop()
             los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
@@ -170,7 +171,7 @@ class Neuroevolution:
         #self.model = model
         return model
     
-    def run_ann(self, pop=[]):
+    def run_ann(self, L=None):
         tf.keras.backend.clear_session()
         num_folds = 2
         model = self.build_ann_custom_architecture()
@@ -186,7 +187,7 @@ class Neuroevolution:
             X_train,X_test = self.dataX[train_index],self.dataX[test_index]
             Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
             model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
-                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()], use_multiprocessing=True)
+                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
             print ('After fit')
             history = model.history.history
             last_val = history['val_accuracy'].pop()
@@ -222,8 +223,11 @@ class Neuroevolution:
         self.phenotype = self.EA.phenotype
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
+
         #del self.model
-        pop.append(self)
+        if L:
+            L.append(self)
+        time.sleep(1)
         return self
     
     def build_cnn_custom_architecture(self):
@@ -549,6 +553,7 @@ class NeuvoBuilder():
             temp_pop.append(child2)
 
         new_pop = []
+        print ('size of temp pop = ', len(temp_pop))
         temp_pop = self.retrain_pop(temp_pop)
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
@@ -769,21 +774,34 @@ class NeuvoBuilder():
     def multi_train_ann(self, population):
         pop = []
         j = 0
+        print ('Before multi retrain...')
+        for individual in population:
+            print (individual.EA.phenotype)
         left = len(population)
         cpu_count = multiprocessing.cpu_count()
-        #with multiprocessing.Manager() as manager:
-        #    processes = []
-        while j < len(population):
-            if left < int(cpu_count):
-                cpu_count = left
-            for i in range(cpu_count):
-                print ('in cpu count for loop')
-                pool = multiprocessing.Pool(processes=cpu_count)
-                results = pool.map(population[j].run_ann, pop)
-                pop.append(results)
-                j += 1
-                left -= 1
         
+        with multiprocessing.Manager() as manager:
+            L = manager.list()
+            processes = []
+            while j < len(population):
+                if left < int(cpu_count):
+                    cpu_count = left
+                for i in range(cpu_count):
+                    print ('in cpu count for loop')
+                    p = multiprocessing.Process(target=population[j].run_ann, args=(L, ))
+                    p.start()
+                    processes.append(p)
+                    j += 1
+                    left -= 1
+                    # Now you can wait for the networks to finish training before executing the 
+                    # rest of the script
+            for process in processes:
+                process.join()
+            pop = list(L)
+        ##Why is pop empty??
+        print ('After multi retrain...')
+        for individual in pop:
+            print (individual.EA.phenotype)
         return pop
 
     def retrain_pop(self, population):
@@ -813,10 +831,9 @@ class NeuvoBuilder():
                 #individual.run_ann()
             #pop.append(individual)
         
-        #for individual in individuals:
-        #    print (individual.EA.phenotype)
-        #for individual in models:
+        print ('Self population here ', len(self.population))
         self.population = self.multi_train_ann(population)
+        print ('Self population here ', len(self.population))
         #print (individual)
         return self.population
 
