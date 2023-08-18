@@ -177,7 +177,7 @@ class GE:
                 if codon[0] in self.grammar:  
                     if codon[0] == 'nodes_var':
                         '''
-                        self.phenotype[-3] is the number of hidden layers, this way we can dynamically change the grammar to include a new activation for each hidden layer
+                        self.phenotype[-10] is the number of hidden layers, this way we can dynamically change the grammar to include a new activation for each hidden layer
                         This section of code requires that NO change is made to the order of expr in the grammar.
                         '''
                         for i in range(int(self.phenotype[-10])):

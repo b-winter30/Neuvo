@@ -23,8 +23,8 @@ def load_cnn_data(dir_path):
     return [dataX, dataY]
 
 def load_1d_data(dir_path):
-    dataX = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/x_data.csv', header=None)
-    dataY = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/y_data.csv', header=None)
+    dataX = pd.read_csv('../activation/Datasets/'+dir_path+'/x_data.csv', header=None)
+    dataY = pd.read_csv('../activation/Datasets/'+dir_path+'/y_data.csv', header=None)
     
     return [dataX.to_numpy(), dataY.to_numpy()]
 

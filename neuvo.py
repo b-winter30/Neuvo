@@ -78,10 +78,10 @@ class Neuroevolution:
         inputted at runtime by the user.
         '''
         if self.fittest != None:
-            self.mutation_rate = self.fittest['mutation rate']
-            self.population_size = self.fittest['population size']
-            self.cloning_rate = self.fittest['cloning rate']
-            self.max_generations = self.fittest['max generations']
+            self.mutation_rate = self.fittest.EA.phenotype['mutation rate']
+            self.population_size = self.fittest.EA.phenotype['population size']
+            self.cloning_rate = self.fittest.EA.phenotype['cloning rate']
+            self.max_generations = self.fittest.EA.phenotype['max generations']
         else:
             self.mutation_rate = self.parameter_list['mutation rate']
             self.population_size = self.parameter_list['population size']
@@ -363,7 +363,7 @@ class NeuvoBuilder():
         self.verbose = verbose
         self.eco = eco
         self.initialise_empty()
-        self.catch_eco()
+        #self.catch_eco()
         self.check_possibility()
         return None
     
@@ -405,11 +405,11 @@ class NeuvoBuilder():
             - eco
             - GE AND eco
         '''
-        if self.eco == True:
-            not_possible = True
+        if self.eco == True and self.type.lower() == 'ge':
+            possible = False
         else:
-            not_possible = False
-        assert not_possible == False, 'GE eco mode has not been implemented yet.'
+            possible = True
+        assert possible == True, 'Sorry, '+str(self.type)+' and eco mode has not been implemented yet.'
         return self
 
     def catch_eco(self):
@@ -418,7 +418,7 @@ class NeuvoBuilder():
         set by the fittest individuals genes, else it will be chosen by the user from a parameter_file or 
         inputted at runtime by the user.
         '''
-        if self.eco:
+        if self.eco and self.fittest:
             self.parameter_list = {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
                                    'population size' : self.fittest.EA.phenotype['population size'], 
                                    'cloning rate' : self.fittest.EA.phenotype['cloning rate'],
@@ -461,7 +461,7 @@ class NeuvoBuilder():
 
         '''
         
-        assert tournament_size < len(self.population), "Tournament size must be less than or equal to the size of the population."
+        assert tournament_size < self.population_size, "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
@@ -547,7 +547,6 @@ class NeuvoBuilder():
             temp_pop.append(child2)
 
         new_pop = []
-        print ('size of temp pop = ', len(temp_pop))
         temp_pop = self.retrain_pop(temp_pop)
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
@@ -768,8 +767,6 @@ class NeuvoBuilder():
     def multi_train_cnn(self, population):
         pop = []
         j = 0
-        for individual in population:
-            print (individual.EA.phenotype)
         left = len(population)
         cpu_count = multiprocessing.cpu_count()
         
@@ -793,8 +790,6 @@ class NeuvoBuilder():
     def multi_train_ann(self, population):
         pop = []
         j = 0
-        for individual in population:
-            print (individual.EA.phenotype)
         left = len(population)
         cpu_count = multiprocessing.cpu_count()
         
@@ -829,10 +824,11 @@ class NeuvoBuilder():
             pop list(Neuroevolution obj): A subset of the population that has been retrained and ready to be put
                                           back into the population.
         '''
-        if len(population[0].shape) > 2:
-            self.population = self.multi_train_cnn(population)
-        else:
-            self.population = self.multi_train_ann(population)
+        if population:
+            if len(population[0].shape) > 2:
+                self.population = self.multi_train_cnn(population)
+            else:
+                self.population = self.multi_train_ann(population)
         return self.population
 
     def initialise_pop(self, insertions=[], elite_mode=False, grammar_file=None):
@@ -874,6 +870,7 @@ class NeuvoBuilder():
             
             self.population = pop
             console.log("Initialisation complete...")
+        self.catch_eco()
         gc.collect()
         return self
     
@@ -1110,11 +1107,9 @@ class NeuvoBuilder():
             i = 1
             try:
                 while i <= self.max_generations:
-                    print ('Size of population = ', len(self.population))
                     self.selection_choice()
                     self.mutate()
                     if self.eco:
-                        self.catch_eco()
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
@@ -1142,6 +1137,5 @@ class NeuvoBuilder():
                             avg_fitness=plot_avg_fitness, output_file=output_file)
             self.output_results_into_csv(output_file, self.fittest.EA.phenotype)
         completion_message = '***Evolution complete***'
-        print (completion_message)
         gc.collect()
         return self
