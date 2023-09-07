@@ -41,7 +41,7 @@ if __name__ == '__main__':
     data = load_1d_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
-    #Neuvo.grammar_file='basic_grammar.txt'
+    Neuvo.grammar_file='half_custom.txt'
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
     Neuvo.population_size=3

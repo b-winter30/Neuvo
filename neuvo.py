@@ -143,8 +143,12 @@ class Neuroevolution:
         return metrics
     
     def custom(self, tensor):
+        from tensorflow.keras import backend as K
         sub_string = self.string
-        x = eval(sub_string)
+        try:
+            x = eval(sub_string)
+        except NameError:
+            x = eval("K."+self.string+"(tensor)")
         return x
     
     def build_ann_custom_architecture(self):
@@ -168,7 +172,6 @@ class Neuroevolution:
             model.add(Dense(units=self.dataY.shape[-1], activation=self.custom))
             model.compile(optimizer=self.EA.phenotype['optimiser'], loss='binary_crossentropy', metrics=['accuracy',f1_m,precision_m, recall_m,
                             MeanAbsoluteError(), RootMeanSquaredError()])
-        #self.model = model
         return model
     
     def run_ann(self, L=None):
@@ -872,7 +875,6 @@ class NeuvoBuilder():
             if len(pop[0].shape) > 2:
                 self.population = self.multi_train_cnn(pop)
             else:
-                print ('Training ann?')
                 self.population = self.multi_train_ann(pop)
             console.log("Initialisation complete...")
         self.catch_eco()
