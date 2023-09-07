@@ -9,11 +9,11 @@ def load_cnn_data(dir_path):
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
         x_train, x_test = x_train / 255.0, x_test / 255.0
         df = pd.DataFrame(list(zip(x_train, y_train)), columns =['Image', 'label']) 
-        val = df.sample(frac=0.1)
+        val = df.sample(frac=0.02)
         X_train = np.array([ i for i in list(val['Image'])])
         Y_train = np.array([ [i[0]] for i in list(val['label'])])
         test = pd.DataFrame(list(zip(x_test, y_test)), columns =['Image', 'label']) 
-        val_test = test.sample(frac=0.1)
+        val_test = test.sample(frac=0.02)
         X_test = np.array([ i for i in list(val_test['Image'])])
         Y_test = np.array([ [i[0]] for i in list(val_test['label'])])
         X = np.concatenate((X_train, X_test), axis=0)
@@ -45,13 +45,13 @@ if __name__ == '__main__':
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
     Neuvo.population_size=3
-    Neuvo.mutation_rate=0.1
-    Neuvo.cloning_rate=0.2
-    Neuvo.max_generations=5
+    Neuvo.mutation_rate=1.0
+    Neuvo.cloning_rate=0.33
+    Neuvo.max_generations=3
     Neuvo.verbose=0
 
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)
     Neuvo.set_fitness_function('val_acc_x_f1')
     Neuvo.initialise_pop(elite_mode=True)
-    Neuvo.run(plot=True)
+    Neuvo.run(plot=True, verbose=True)
