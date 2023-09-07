@@ -251,9 +251,9 @@ class Neuroevolution:
             model.add(Dense(1024, activation=self.EA.phenotype['activation functions'][-2]))
             model.add(Dropout(0.2))
 
-            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            model.add(Dense(1, activation='sigmoid'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='binary_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
             self.string = self.EA.phenotype['activation functions'][0]
@@ -283,9 +283,9 @@ class Neuroevolution:
             model.add(Dense(1024, activation=self.custom))
             model.add(Dropout(0.2))
 
-            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            model.add(Dense(1, activation='sigmoid'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='binary_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
@@ -547,7 +547,6 @@ class NeuvoBuilder():
             temp_pop.append(child2)
 
         new_pop = []
-        print ('size of temp pop = ', len(temp_pop))
         temp_pop = self.retrain_pop(temp_pop)
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
@@ -768,8 +767,6 @@ class NeuvoBuilder():
     def multi_train_cnn(self, population):
         pop = []
         j = 0
-        for individual in population:
-            print (individual.EA.phenotype)
         left = len(population)
         cpu_count = multiprocessing.cpu_count()
         
@@ -793,8 +790,6 @@ class NeuvoBuilder():
     def multi_train_ann(self, population):
         pop = []
         j = 0
-        for individual in population:
-            print (individual.EA.phenotype)
         left = len(population)
         cpu_count = multiprocessing.cpu_count()
         
@@ -858,21 +853,26 @@ class NeuvoBuilder():
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, genotype=genotype, type=self.type, fittest=None,
                                     eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length,
                                     grammar_file=self.grammar_file)
-                if len(a.shape) > 2:
-                    a.run_cnn()
-                else:
-                    a.run_ann()
+                #if len(a.shape) > 2:
+                #    a.run_cnn()
+                #else:
+                #    a.run_ann()
                 pop.append(a)
             for _ in range(0, self.population_size-len(insertions)):
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, verbose=self.verbose, fittest=None,
                                 gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-                if len(a.shape) > 2:
-                    a.run_cnn()
-                else:
-                    a.run_ann()
+                #if len(a.shape) > 2:
+                #    a.run_cnn()
+                #else:
+                #    a.run_ann()
+
                 pop.append(a)
             
-            self.population = pop
+            if len(pop[0].shape) > 2:
+                self.population = self.multi_train_cnn(pop)
+            else:
+                print ('Training ann?')
+                self.population = self.multi_train_ann(pop)
             console.log("Initialisation complete...")
         gc.collect()
         return self
