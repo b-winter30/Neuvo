@@ -35,23 +35,24 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--type", default='ga',  help="Type of evolutionary algorithm ga/ge")
     parser.add_argument("-e", "--eco", action='store_true', help="Ecologoical mode (True/False)")
     parser.add_argument("-ne", "--no-eco", dest='eco', action='store_false')
+    parser.add_argument("-gf", "--grammar_file", default='basic_grammar.txt')
     parser.set_defaults(eco=False)
     args = vars(parser.parse_args())
     
     data = load_1d_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
-    Neuvo.grammar_file='half_custom.txt'
+    Neuvo.grammar_file=args['grammar_file']
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
     Neuvo.population_size=3
     Neuvo.mutation_rate=1.0
     Neuvo.cloning_rate=0.33
-    Neuvo.max_generations=3
-    Neuvo.verbose=0
+    Neuvo.max_generations=5
+    Neuvo.verbose=2
 
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)
     Neuvo.set_fitness_function('val_acc_x_f1')
     Neuvo.initialise_pop(elite_mode=True)
-    Neuvo.run(plot=True, verbose=True)
+    Neuvo.run(plot=True)

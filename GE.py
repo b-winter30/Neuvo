@@ -1,13 +1,12 @@
 import random
-import numpy as np
 import json
-from typing import List, Any, Iterable
 class GE:
     def __init__(self, shape, num_layers=4, num_nodes=8, mutation_rate=0.1, genotype=None, user_grammar_file=None,
                  genotype_length=32, gene_value=40):
         self.shape = shape
         self.layers = num_layers
         self.nodes = num_nodes
+        self.grammar_file = user_grammar_file
         self.mutation_rate = mutation_rate
         self.genotype_length = genotype_length
         self.gene_value = gene_value
@@ -72,6 +71,7 @@ class GE:
         return self
     
     def set_grammar(self, user_grammar_file=None):
+        import copy
         '''
         Set self.grammar, a default grammar is provided, however if the user has a grammar that can be inputted
         with the variable user_grammar_file.
@@ -205,7 +205,7 @@ class GE:
                     return None
         codon = []
         returnable_pheno = self.phenotype
-        #self.set_grammar()
+        self.set_grammar(self.grammar_file)
         return returnable_pheno
 
     def remove_metrics(self):

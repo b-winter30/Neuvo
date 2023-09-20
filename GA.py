@@ -1,6 +1,5 @@
 import random
 import numpy as np
-from typing import List, Any, Iterable
 class GA:
     def __init__(self, shape, mutation_rate=0.1, phenotype=None, genotype=None,
                  eco=False):
