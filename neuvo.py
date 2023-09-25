@@ -9,6 +9,7 @@ import multiprocessing
 import json
 from rich.console import Console
 import copy
+import numpy as np
 import gc
 from GA import GA
 import warnings
@@ -123,7 +124,6 @@ class Neuroevolution:
         try:
             x = eval(sub_string)
         except NameError:
-            print ('substring = ', sub_string)
             x = eval("nn."+sub_string+"(tensor)")
         return x
     
@@ -422,7 +422,6 @@ class NeuvoBuilder():
         inputted at runtime by the user.
         '''
         if self.eco and self.fittest:
-            print ('Parameters set on fittest phenotype')
             self.parameter_list == {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
                                    'population size' : self.fittest.EA.phenotype['population size'], 
                                    'cloning rate' : self.fittest.EA.phenotype['cloning rate'],
@@ -431,7 +430,6 @@ class NeuvoBuilder():
             self.cloning_rate == self.parameter_list.get('cloning rate')
             self.population_size == self.parameter_list.get('population size')
             self.max_generations == self.parameter_list.get('max_generations')
-            print (self.max_generations)
         else:
             self.parameter_list = {'mutation rate' : self.mutation_rate, 
                                    'population size' : self.population_size, 
@@ -465,7 +463,7 @@ class NeuvoBuilder():
                     params[key] = float(val)
         return params
 
-    def tournament_selection(self, tournament_size=2):
+    def tournament_selection(self):
         '''
         The tournament selection operator, where n random individuals are chosen 
         from the population, the two fittest individuals are then eligible for reproduction.
@@ -477,7 +475,7 @@ class NeuvoBuilder():
             NeuvoBuilder obj : A NeuvoBuilder object.
         '''
         
-        assert tournament_size < self.population_size, "Tournament size must be less than or equal to the size of the population."
+        assert self.tournament_size < self.population_size, "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
@@ -490,7 +488,12 @@ class NeuvoBuilder():
         reproducible_pop = population_copy[n:]
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
-            random_choices = random.sample(reproducible_pop, tournament_size)
+            sample = random.sample(reproducible_pop, self.tournament_size)
+            random_choices = []
+            sample.sort(key =lambda x: x.EA.phenotype.get(self.fitness_function), reverse=True)
+            random_choices.append(sample[0])
+            random_choices.append(sample[1])
+            
             child1, child2 = self.crossover(random_choices[0], random_choices[1])
             retrain_pop.append(child1)
             j += 1
@@ -1014,11 +1017,13 @@ class NeuvoBuilder():
         '''
         self.catch_eco()
         pop = []
-        while self.fittest.EA.phenotype['population size'] > len(self.population):
-            insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
-                                       fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
-                                       gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-            pop.append(insertion)
+        if self.fittest.EA.phenotype['population size'] > len(self.population):
+            difference = self.fittest.EA.phenotype['population size'] - len(self.population)
+            for _ in range(difference):
+                insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
+                                        fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
+                                        gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
+                pop.append(insertion)
         if self.fittest.EA.phenotype['population size'] < len(self.population):
             phenotype_list = []
             for individual in self.population:
@@ -1062,6 +1067,13 @@ class NeuvoBuilder():
                      str(elite_individual.get('speed')) + ',' + str(elite_individual.get('val_acc_x_f1')) +"\n")
             fd.write("\n")
             fd.close()
+        if self.eco:
+            with open('./Results/'+output_file+'.csv','a') as fd:
+                fd.write(str(elite_individual.get('population size')) + ',' + str(elite_individual.get('max generations')) + ',' + str(elite_individual.get('mutation rate')) + ',' + 
+                        str(elite_individual.get('cloning rate')) + "\n")
+                fd.write("\n")
+                fd.close()
+
         return None
 
     #This could be cleaned up.
