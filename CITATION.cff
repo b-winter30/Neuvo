@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Winter
+    given-names: Benjamin David
+    orcid: https://orcid.org/0000-0001-8802-643X
+title: "Neuvo Python Framework"
+version: 1.0.0
+date-released: 2023-09-25
