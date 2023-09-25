@@ -1,4 +1,3 @@
-import pandas as pd
 import time
 import math
 import random
@@ -10,18 +9,20 @@ import multiprocessing
 import json
 from rich.console import Console
 import copy
+import numpy as np
 import gc
 from GA import GA
 import warnings
 import logging
+from datetime import datetime
 warnings.filterwarnings('ignore') 
 tf.get_logger().setLevel(logging.ERROR)
 config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 from Metrics import f1_m, precision_m, recall_m
-from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout
 from tensorflow.keras.layers import MaxPooling2D, BatchNormalization
 from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras.callbacks import EarlyStopping, TerminateOnNaN
@@ -51,13 +52,27 @@ class Neuroevolution:
         return None
 
     def build_architecture(self):
+        '''
+        A function to check the users data shape.
+        If the shapes dimensions are greater than 2 then a CNN will be built,
+        else an artificial neural network will be built.
+
+        '''
         if len(self.shape) > 2:
-            self.model = self.build_cnn_custom_architecture()
+            self.build_cnn_custom_architecture()
         else:
-            self.model = self.build_ann_custom_architecture()
+            self.build_ann_custom_architecture()
         return self
     
     def build_ea(self, genotype_length=32, gene_value=40):
+        '''
+        A function to check the users preference for evolutionary algorithms.
+
+        Parameters:
+            genotype_length (int) : The length of the genotype which will map to a phenotype when running
+                                    alongside grammatical evolution.
+            gene_value (int) : The maximum integer value for each gene in the genotype.
+        '''
         if self.type.lower() == 'ga':
             self.EA = GA(shape=self.shape, mutation_rate=self.mutation_rate, phenotype=self.genotype, eco=self.eco)
         else:
@@ -65,6 +80,14 @@ class Neuroevolution:
                         genotype_length=genotype_length, gene_value=gene_value, user_grammar_file=self.grammar_file)
 
     def build_parent(self, genotype_length=32, gene_value=40):
+        '''
+        A function to initialise a parent individual when the object is first created.
+
+        Parameters:
+            genotype_length (int) : The length of the genotype which will map to a phenotype when running
+                                    alongside grammatical evolution.
+            gene_value (int) : The maximum integer value for each gene in the genotype.
+        '''
         self.build_ea(genotype_length=genotype_length, gene_value=gene_value)
         self.build_architecture()
         return self
@@ -76,75 +99,43 @@ class Neuroevolution:
         inputted at runtime by the user.
         '''
         if self.fittest != None:
-            self.mutation_rate = self.fittest['mutation rate']
-            self.population_size = self.fittest['population size']
-            self.cloning_rate = self.fittest['cloning rate']
-            self.max_generations = self.fittest['max generations']
+            self.mutation_rate = self.fittest.EA.phenotype['mutation rate']
+            self.population_size = self.fittest.EA.phenotype['population size']
+            self.cloning_rate = self.fittest.EA.phenotype['cloning rate']
+            self.max_generations = self.fittest.EA.phenotype['max generations']
         else:
             self.mutation_rate = self.parameter_list['mutation rate']
             self.population_size = self.parameter_list['population size']
             self.cloning_rate = self.parameter_list['cloning rate']
             self.max_generations = self.parameter_list['max generations']
         return self
-
-    def build_basic_ann(self):
-        tf.keras.backend.clear_session()
-        model = Sequential()
-        model.add(Dense(units=8, activation='relu', input_dim=self.shape[1], use_bias=True))
-        model.add(Dense(units=8, activation='relu', use_bias=True))
-        model.add(Dense(units=8, activation='relu', use_bias=True))
-        model.add(Dense(units=8, activation='relu', use_bias=True))
-        model.add(Dense(units=1, activation='sigmoid'))
-        model.compile(optimizer='Adam', loss='binary_crossentropy', metrics=['accuracy'])
-        num_folds = 2
-        kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
-        #log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        #tb = TensorBoard(log_dir=log_dir, histogram_freq=1, write_grads=True)
-        start = time.time()
-        loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
-        for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
-            X_train,X_test = self.dataX[train_index],self.dataX[test_index]
-            Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
-            self.model.fit(X_train, Y_train, batch_size=4, epochs=20,
-                            verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
-            history = self.model.history.history
-            last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
-            loss += los
-            accuracy += acc
-            f1 += f
-            precision += prec
-            recall += rec
-            mae += ma
-            rmse += rms
-        loss, accuracy, f1, precision, recall, mae, rmse = (loss/num_folds), (accuracy/num_folds), (f1/num_folds), \
-            (precision/num_folds), (recall/num_folds), (mae/num_folds), (rmse/num_folds)
-        end = time.time()
-        speed = end - start
-        val_acc_x_f1 = last_val * f1
-        if math.isnan(val_acc_x_f1):
-            val_acc_x_f1 = 0.0
-        metrics = {
-            'loss' : loss,
-            'accuracy' : accuracy,
-            'f1' : f1,
-            'precision' : precision,
-            'recall' : recall,
-            'mae' : mae,
-            'rmse' : rmse,
-            'validation_accuracy' : last_val,
-            'speed' : speed,
-            'val_acc_x_f1' : val_acc_x_f1
-        }
-        return metrics
     
     def custom(self, tensor):
+        '''
+        A function to create custom activation functions using Pythons `eval' functionality.
+
+        Parameters:
+            tensor (string) : A string representation of an activation function e.g. 'min(x,0)'
+        Returns:
+            model (sequential model) : A Tensorflow sequential model built for classifying 2D data.
+        '''
+        from tensorflow import nn
         sub_string = self.string
-        x = eval(sub_string)
+        try:
+            x = eval(sub_string)
+        except NameError:
+            x = eval("nn."+sub_string+"(tensor)")
         return x
     
     def build_ann_custom_architecture(self):
+        '''
+        A function to build an artificial neural network using Tensorflows Sequential model,
+        with the objects architecture parameters. This model gets passed to another function to run the model
+        on the users data.
+
+        Returns:
+            model (sequential model) : A Tensorflow sequential model built for classifying 2D data.
+        '''
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
@@ -167,23 +158,32 @@ class Neuroevolution:
                             MeanAbsoluteError(), RootMeanSquaredError()])
         return model
     
-    def run_ann(self, queue=None):
+    def run_ann(self, L=None, data=None):
+        '''
+        A function to run a convolutional neural network using Tensorflows Sequential model.
+        Uses 2 fold cross validation and the objects architecture parameters.
+
+        Parameters:
+            L (multiprocessing list) : A list to append the NeuroEvolution object used for multi training.
+            data (numpy array) : Numpy array consisting of the data and labels.
+        '''
+        dataX = data[0]
+        dataY = data[1]
         tf.keras.backend.clear_session()
         num_folds = 2
+        model = self.build_ann_custom_architecture()
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
-        #log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        #tb = TensorBoard(log_dir=log_dir, histogram_freq=1, write_grads=True)
         start = time.time()
         loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
-        for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
-            X_train,X_test = self.dataX[train_index],self.dataX[test_index]
-            Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
-            self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
+        for i, (train_index, test_index) in enumerate(kfold.split(dataX, dataY)):
+            X_train,X_test = dataX[train_index],dataX[test_index]
+            Y_train,Y_test = dataY[train_index],dataY[test_index]
+            model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'],
                             verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
-            history = self.model.history.history
+            history = model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, f, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
+            los, acc, f, prec, rec, ma, rms = model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
             f1 += f
@@ -214,10 +214,19 @@ class Neuroevolution:
         self.phenotype = self.EA.phenotype
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
-        del self.model
-        return None
+        if L != None:
+            L.put(self)
+        return self
     
     def build_cnn_custom_architecture(self):
+        '''
+        A function to build a convolutional neural network using Tensorflows Sequential model,
+        with the objects architecture parameters. This model gets passed to another function to run the model
+        on the users data.
+
+        Returns:
+            model (sequential model) : A Tensorflow sequential model built for classifying 2D data.
+        '''
         tf.keras.backend.clear_session()
         model = Sequential()
         try:
@@ -245,9 +254,9 @@ class Neuroevolution:
             model.add(Dense(1024, activation=self.EA.phenotype['activation functions'][-2]))
             model.add(Dropout(0.2))
 
-            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            model.add(Dense(1, activation='sigmoid'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='binary_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         except ValueError:
             self.string = self.EA.phenotype['activation functions'][0]
@@ -277,28 +286,39 @@ class Neuroevolution:
             model.add(Dense(1024, activation=self.custom))
             model.add(Dropout(0.2))
 
-            model.add(Dense(self.dataY.shape[-1], activation='softmax'))
+            model.add(Dense(1, activation='sigmoid'))
             
-            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='sparse_categorical_crossentropy',
+            model.compile(optimizer=str(self.EA.phenotype['optimiser']), loss='binary_crossentropy',
                        metrics=['accuracy', Precision(), Recall(), MeanAbsoluteError(), RootMeanSquaredError()])
         return model
 
-    def run_cnn(self, queue=None):
+    def run_cnn(self, L=None, data=None):
+        '''
+        A function to run a convolutional neural network using Tensorflows Sequential model.
+        Uses 5 fold cross validation and the objects architecture parameters. Metrics are stored in the individuals
+        phenotype.
+
+        Parameters:
+            L (multiprocessing list) : A list to append the NeuroEvolution object used for multi training.
+            data (numpy array) : Numpy array consisting of the data and labels.
+        '''
+        dataX = data[0]
+        dataY = data[1]
         tf.keras.backend.clear_session()
-        num_folds = 2
+        num_folds = 5
+        model = self.build_cnn_custom_architecture()
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=2)
         start = time.time()
         loss, accuracy, f1, precision, recall, mae, rmse = (0.0,)*7
-        for i, (train_index, test_index) in enumerate(kfold.split(self.dataX, self.dataY)):
-            X_train,X_test = self.dataX[train_index],self.dataX[test_index]
-            Y_train,Y_test = self.dataY[train_index],self.dataY[test_index]
-            self.model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'], 
-                           verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()],
-                           use_multiprocessing=True)
-            history = self.model.history.history
+        for i, (train_index, test_index) in enumerate(kfold.split(dataX, dataY)):
+            X_train,X_test = dataX[train_index],dataX[test_index]
+            Y_train,Y_test = dataY[train_index],dataY[test_index]
+            model.fit(X_train, Y_train, batch_size=self.EA.phenotype['batch size'], epochs=self.EA.phenotype['number of epochs'], 
+                           verbose=self.verbose, validation_data=(X_test, Y_test), callbacks=[es, TerminateOnNaN()])
+            history = model.history.history
             last_val = history['val_accuracy'].pop()
-            los, acc, prec, rec, ma, rms = self.model.evaluate(X_test, Y_test, verbose=self.verbose)
+            los, acc, prec, rec, ma, rms = model.evaluate(X_test, Y_test, verbose=self.verbose)
             loss += los
             accuracy += acc
             f1 += 2*(rec*prec)/1+(rec+prec)
@@ -329,19 +349,9 @@ class Neuroevolution:
         if self.type == 'ga':
             self.EA.genotype = self.EA.phenotype
         self.phenotype = self.EA.phenotype
-        del self.model
+        if L != None:
+            L.append(self)
         return None
-
-    def parse_params(self, evo_param_file):
-        params = {}
-        with open(evo_param_file) as f:
-            for line in f:
-                (key, val) = line.split(' = ')
-                try:
-                    params[key] = int(val)
-                except ValueError:
-                    params[key] = float(val)
-        return params
 
 class NeuvoBuilder():
     def __init__(self, evo_params=None, type='ga', fittest=None, eco=False, verbose=0, gene_value=40, genotype_length=32,
@@ -356,7 +366,7 @@ class NeuvoBuilder():
         self.verbose = verbose
         self.eco = eco
         self.initialise_empty()
-        self.catch_eco()
+        #self.catch_eco()
         self.check_possibility()
         return None
     
@@ -398,11 +408,11 @@ class NeuvoBuilder():
             - eco
             - GE AND eco
         '''
-        if self.eco == True:
-            not_possible = True
+        if self.eco == True and self.type.lower() == 'ge':
+            possible = False
         else:
-            not_possible = False
-        assert not_possible == False, 'GE eco mode has not been implemented yet.'
+            possible = True
+        assert possible == True, 'Sorry, '+str(self.type)+' and eco mode has not been implemented yet.'
         return self
 
     def catch_eco(self):
@@ -411,11 +421,15 @@ class NeuvoBuilder():
         set by the fittest individuals genes, else it will be chosen by the user from a parameter_file or 
         inputted at runtime by the user.
         '''
-        if self.eco:
-            self.parameter_list = {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
+        if self.eco and self.fittest:
+            self.parameter_list == {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
                                    'population size' : self.fittest.EA.phenotype['population size'], 
                                    'cloning rate' : self.fittest.EA.phenotype['cloning rate'],
                                    'max generations' : self.fittest.EA.phenotype['max generations']}
+            self.mutation_rate == self.parameter_list.get('mutation rate')
+            self.cloning_rate == self.parameter_list.get('cloning rate')
+            self.population_size == self.parameter_list.get('population size')
+            self.max_generations == self.parameter_list.get('max_generations')
         else:
             self.parameter_list = {'mutation rate' : self.mutation_rate, 
                                    'population size' : self.population_size, 
@@ -449,12 +463,19 @@ class NeuvoBuilder():
                     params[key] = float(val)
         return params
 
-    def tournament_selection(self, tournament_size=2):
+    def tournament_selection(self):
         '''
-
+        The tournament selection operator, where n random individuals are chosen 
+        from the population, the two fittest individuals are then eligible for reproduction.
+        
+        Parameters:
+            tournament_size (int) : The number of individuals in the tournament.
+        
+        Returns:
+            NeuvoBuilder obj : A NeuvoBuilder object.
         '''
         
-        assert tournament_size < len(self.population), "Tournament size must be less than or equal to the size of the population."
+        assert self.tournament_size < self.population_size, "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
@@ -467,7 +488,12 @@ class NeuvoBuilder():
         reproducible_pop = population_copy[n:]
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
-            random_choices = random.sample(reproducible_pop, tournament_size)
+            sample = random.sample(reproducible_pop, self.tournament_size)
+            random_choices = []
+            sample.sort(key =lambda x: x.EA.phenotype.get(self.fitness_function), reverse=True)
+            random_choices.append(sample[0])
+            random_choices.append(sample[1])
+            
             child1, child2 = self.crossover(random_choices[0], random_choices[1])
             retrain_pop.append(child1)
             j += 1
@@ -475,7 +501,7 @@ class NeuvoBuilder():
             j += 1
         new_pop = []
         temp_pop = retrain_pop
-        temp_pop = self.retrain_pop(retrain_pop)
+        temp_pop = self.retrain_pop(retrain_pop, data=self.data)
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
@@ -483,7 +509,11 @@ class NeuvoBuilder():
 
     def roulette_selection(self):
         '''
-
+        The Roulette wheel selection operator, this function allows each genotype to be selected,
+        but offers preferential treatment to fitter genotypes.
+        
+        Returns:
+            NeuvoBuilder obj : A NeuvoBuilder object.
         '''
         cloned_pop = []
         if self.elite_mode:
@@ -628,7 +658,7 @@ class NeuvoBuilder():
             parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
         
         Returns:
-            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+            tuple(Neuroevolution obj, Neuroevolution obj) : A tuple containing two Neuroevolution
                                                            objects. These will then be passed to
                                                            retrain.
         '''
@@ -657,6 +687,21 @@ class NeuvoBuilder():
         return child1, child2
 
     def two_point_crossover_ga(self, parent_one, parent_two):
+        '''
+        The two point crossover function for GA. 
+        
+        Here we determine two random points in the genotype to be the crossover points and
+        the genes between these two are placed into the offspring.
+        
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            tuple(Neuroevolution obj, Neuroevolution obj) : A tuple containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
         child1 = parent_one
         child2 = parent_two
         if len(list(child1.EA.phenotype.items())) <= len(list(child2.EA.phenotype.items())):
@@ -697,7 +742,7 @@ class NeuvoBuilder():
             parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
         
         Returns:
-            list[Neuroevolution obj, Neuroevolution obj] : A list containing two Neuroevolution
+            tuple(Neuroevolution obj, Neuroevolution obj) : A tuple containing two Neuroevolution
                                                            objects. These will then be passed to
                                                            retrain.
         '''
@@ -719,6 +764,23 @@ class NeuvoBuilder():
         return child1, child2
 
     def two_point_crossover_ge(self, parent_one, parent_two):
+        '''
+        The two point crossover function for GE. This is the same function as it is for GA,
+        However, determining the crossover point is different, as opposed to GA, 
+        in GE the genotype is seperate to the phenotype.
+        
+        Here we determine two random points in the genotype to be the crossover points and
+        the genes between these two are placed into the offspring.
+        
+        Parameters:
+            parent_one (Neuroevolution obj) : The first parent chosen for reproduction.
+            parent_two (Neuroevolution obj) : The second parent chosen for reproduction.
+        
+        Returns:
+            tuple(Neuroevolution obj, Neuroevolution obj) : A tuple containing two Neuroevolution
+                                                           objects. These will then be passed to
+                                                           retrain.
+        '''
         child1 = parent_one
         child2 = parent_two
         first_crossover_point = random.randint(0, len(list(child1.EA.genotype))-2)
@@ -750,14 +812,95 @@ class NeuvoBuilder():
             if chance <= individual.mutation_rate:
                 individual.EA.mutate()
                 if len(individual.shape) > 2:
-                    individual.model = individual.build_cnn_custom_architecture()
-                    individual.run_cnn()
+                    #individual.model = individual.build_cnn_custom_architecture()
+                    individual.run_cnn(data=self.data)
                 else:
-                    individual.model = individual.build_ann_custom_architecture()
-                    individual.run_ann()
+                    #individual.model = individual.build_ann_custom_architecture()
+                    individual.run_ann(data=self.data)
         return self
 
-    def retrain_pop(self, population):
+    def multi_train_cnn(self, population, data):
+        '''
+        Retrain function, used for a subset of population that have just been reproduced and haven't
+        reran their convolutional neural network yet.
+        
+        These individuals are then added to a list to await transfer back to the population.
+
+        Parameters:
+            population list(Neuroevolution obj): A subset of the population that requires retraining.
+            data (numpy array) : The users data.
+        
+        Returns:
+            population list(Neuroevolution obj): A subset of the population that has been retrained and ready to be put
+                                          back into the population.
+        '''
+        pop = []
+        j = 0
+        left = len(population)
+        cpu_count = multiprocessing.cpu_count()
+        for individual in population:
+            individual.run_cnn(L=None, data=data)
+        # with multiprocessing.Manager() as manager:
+        #     L = manager.list()
+        #     processes = []
+        #     while j < len(population):
+        #         if left < int(cpu_count):
+        #             cpu_count = left
+        #         for i in range(cpu_count):
+        #             p = multiprocessing.Process(target=population[j].run_cnn, args=(L, ))
+        #             p.start()
+        #             processes.append(p)
+        #             j += 1
+        #             left -= 1
+        #     for process in processes:
+        #         process.join()
+        #     pop = list(L)
+        return population
+
+    def multi_train_ann(self, population, data):
+        '''
+        Retrain function, used for a subset of population that have just been reproduced and haven't
+        reran their neural network yet.
+        
+        These individuals are then added to a list to await transfer back to the population.
+
+        Parameters:
+            population list(Neuroevolution obj): A subset of the population that requires retraining.
+            data (numpy array) : The users data.
+        
+        Returns:
+            population list(Neuroevolution obj): A subset of the population that has been retrained and ready to be put
+                                          back into the population.
+        '''
+        pop = []
+        j = 0
+        left = len(population)
+        cpu_count = multiprocessing.cpu_count()
+        for individual in population:
+            individual.run_ann(L=None, data=data)
+
+        # with multiprocessing.Manager() as manager:
+        #     L = manager.list()
+        #     processes = []
+        #     queue1 = multiprocessing.Queue()
+        #     while j < len(population):
+        #         if left < int(cpu_count):
+        #             cpu_count = left
+        #         for i in range(cpu_count):
+        #             p = multiprocessing.Process(target=population[j].run_ann, args=(queue1, data))
+        #             p.start()
+        #             print ('before get...')
+        #             pop.append(queue1.get())
+        #             print ('after get...')
+        #             processes.append(p)
+        #             j += 1
+        #             left -= 1
+        #     for process in processes:
+        #         process.join()
+            #pop = list(L)
+        return population
+
+    def retrain_pop(self, population, data):
         '''
         Retrain function, used for a subset of population that have just been reproduced and haven't
         reran their neural network yet.
@@ -771,16 +914,12 @@ class NeuvoBuilder():
             pop list(Neuroevolution obj): A subset of the population that has been retrained and ready to be put
                                           back into the population.
         '''
-        pop = []
-        for individual in population:
-            if len(individual.shape) > 2:
-                individual.model = individual.build_cnn_custom_architecture()
-                individual.run_cnn()
+        if population:
+            if len(population[0].shape) > 2:
+                self.population = self.multi_train_cnn(population, data)
             else:
-                individual.model = individual.build_ann_custom_architecture()
-                individual.run_ann()
-            pop.append(individual)
-        return pop
+                self.population = self.multi_train_ann(population, data)
+        return self.population
 
     def initialise_pop(self, insertions=[], elite_mode=False, grammar_file=None):
         '''
@@ -805,22 +944,27 @@ class NeuvoBuilder():
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, genotype=genotype, type=self.type, fittest=None,
                                     eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length,
                                     grammar_file=self.grammar_file)
-                if len(a.shape) > 2:
-                    a.run_cnn()
-                else:
-                    a.run_ann()
+                #if len(a.shape) > 2:
+                #    a.run_cnn()
+                #else:
+                #    a.run_ann()
                 pop.append(a)
             for _ in range(0, self.population_size-len(insertions)):
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, verbose=self.verbose, fittest=None,
                                 gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-                if len(a.shape) > 2:
-                    a.run_cnn()
-                else:
-                    a.run_ann()
+                #if len(a.shape) > 2:
+                #    a.run_cnn()
+                #else:
+                #    a.run_ann()
+
                 pop.append(a)
             
-            self.population = pop
+            if len(pop[0].shape) > 2:
+                self.population = self.multi_train_cnn(pop)
+            else:
+                self.population = self.multi_train_ann(pop, data=self.data)
             console.log("Initialisation complete...")
+        self.catch_eco()
         gc.collect()
         return self
     
@@ -847,6 +991,9 @@ class NeuvoBuilder():
         return fittest_of_gen
     
     def save_phenotypes(self):
+        '''
+        Checkpoint function to save the populations phenotypes into a .txt file.
+        '''
         pop_to_save = []
         for individual in self.population:
             if self.type == 'ga':
@@ -854,6 +1001,7 @@ class NeuvoBuilder():
             elif self.type == 'ge':
                 pop_to_save.append(individual.EA.genotype)
         with open('individuals_saved.txt', 'a') as output_file:
+            output_file.write(self.dataset_name+' '+str(datetime.now()))
             output_file.write(json.dumps(pop_to_save))
             output_file.write('\n')
         return self
@@ -868,15 +1016,14 @@ class NeuvoBuilder():
         the population.
         '''
         self.catch_eco()
-        while self.fittest.EA.phenotype['population size'] > len(self.population):
-            insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
-                                       fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
-                                       gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-            if len(insertion.shape) > 2:
-                insertion.run_cnn()
-            else:
-                insertion.run_ann()
-            self.population.append(insertion)
+        pop = []
+        if self.fittest.EA.phenotype['population size'] > len(self.population):
+            difference = self.fittest.EA.phenotype['population size'] - len(self.population)
+            for _ in range(difference):
+                insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
+                                        fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
+                                        gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
+                pop.append(insertion)
         if self.fittest.EA.phenotype['population size'] < len(self.population):
             phenotype_list = []
             for individual in self.population:
@@ -888,11 +1035,12 @@ class NeuvoBuilder():
                 insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
                                            fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
                                            gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-                if len(insertion.shape) > 2:
-                    insertion.run_cnn()
-                else:
-                    insertion.run_ann()
-                self.population.append(insertion)
+                pop.append(insertion)
+            
+        if len(pop[0].shape) > 2:
+            self.population = self.multi_train_cnn(pop)
+        else:
+            self.population = self.multi_train_ann(pop, data=self.data)
         return self
 
     def output_results_into_csv(self, output_file, elite_individual):
@@ -919,6 +1067,13 @@ class NeuvoBuilder():
                      str(elite_individual.get('speed')) + ',' + str(elite_individual.get('val_acc_x_f1')) +"\n")
             fd.write("\n")
             fd.close()
+        if self.eco:
+            with open('./Results/'+output_file+'.csv','a') as fd:
+                fd.write(str(elite_individual.get('population size')) + ',' + str(elite_individual.get('max generations')) + ',' + str(elite_individual.get('mutation rate')) + ',' + 
+                        str(elite_individual.get('cloning rate')) + "\n")
+                fd.write("\n")
+                fd.close()
+
         return None
 
     #This could be cleaned up.
@@ -1002,7 +1157,7 @@ class NeuvoBuilder():
         Data loader function.
         
         Parameters:
-            data (list(np.array)) : This should be a list of size 2 containing two numpy arrays,
+            data (list(np.array, np.array)) : This should be a list of size 2 containing two numpy arrays,
                                     one containing training data and one comparing the training labels.
         '''
         dataX = data[0]
@@ -1030,7 +1185,7 @@ class NeuvoBuilder():
             self.roulette_selection()
         return self
 
-    def run(self, plot=True, verbose=0):
+    def run(self, plot=True):
         '''
         Starter pistol function to run the evolutionary process. 
         Runs through the entire evolutionary process, selection, mutation, crossover etc.
@@ -1042,14 +1197,15 @@ class NeuvoBuilder():
             verbose (int) (0/1/2) : A flag parameter used to turn tensorflows verbose function on.
                                     See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model
         '''
-        self.verbose=verbose
+        #self.verbose=verbose
         console = Console()
         catch = False
         self.which_fittest()
         self.catch_eco()
         
+        print ('max generations = ', self.max_generations)
         assert self.max_generations > 0, 'Maximum number of generations must be > 0'
-        assert verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
+        assert self.verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
         plot_generation, plot_best_fitness, plot_elite_fitness, plot_elite_fitness, plot_avg_fitness = ([] for i in range(5))
         output_file = self.dataset_name+'_'+str(self.type)+'_p_'+str(self.population_size)+'_mr_'+str(self.mutation_rate)+'_cr_'+str(self.cloning_rate)+'_eco_'+str(self.eco)
         with console.status("[bold green]Running through generations...") as status:
@@ -1059,13 +1215,12 @@ class NeuvoBuilder():
                     self.selection_choice()
                     self.mutate()
                     if self.eco:
-                        self.catch_eco()
                         self.pop_recalibrate()
                         if self.max_generations <= i:
                             catch = True
                     fittest_of_gen = self.which_fittest()
                     #Every 50th generation, save the fittest network in a file.
-                    if i % 2 == 0 or i == 1 or catch:
+                    if i % 5 == 0 or i == 1 or catch:
                         self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
                     plot_generation.append(i)
                     plot_best_fitness.append(fittest_of_gen.EA.phenotype.get(self.fitness_function))  
@@ -1087,6 +1242,5 @@ class NeuvoBuilder():
                             avg_fitness=plot_avg_fitness, output_file=output_file)
             self.output_results_into_csv(output_file, self.fittest.EA.phenotype)
         completion_message = '***Evolution complete***'
-        print (completion_message)
         gc.collect()
         return self

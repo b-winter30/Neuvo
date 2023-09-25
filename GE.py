@@ -1,13 +1,12 @@
 import random
-import numpy as np
 import json
-from typing import List, Any, Iterable
 class GE:
     def __init__(self, shape, num_layers=4, num_nodes=8, mutation_rate=0.1, genotype=None, user_grammar_file=None,
                  genotype_length=32, gene_value=40):
         self.shape = shape
         self.layers = num_layers
         self.nodes = num_nodes
+        self.grammar_file = user_grammar_file
         self.mutation_rate = mutation_rate
         self.genotype_length = genotype_length
         self.gene_value = gene_value
@@ -72,6 +71,7 @@ class GE:
         return self
     
     def set_grammar(self, user_grammar_file=None):
+        import copy
         '''
         Set self.grammar, a default grammar is provided, however if the user has a grammar that can be inputted
         with the variable user_grammar_file.
@@ -177,11 +177,11 @@ class GE:
                 if codon[0] in self.grammar:  
                     if codon[0] == 'nodes_var':
                         '''
-                        self.phenotype[-3] is the number of hidden layers, this way we can dynamically change the grammar to include a new activation for each hidden layer
+                        self.phenotype[-10] is the number of hidden layers, this way we can dynamically change the grammar to include a new activation for each hidden layer
                         This section of code requires that NO change is made to the order of expr in the grammar.
                         '''
                         for i in range(int(self.phenotype[-10])):
-                            symbols_to_add = ['\"', 'activation_function', '\"', ','] 
+                            symbols_to_add = ['\"', 'hidden_activation_functions', '\"', ','] 
                             for j in range(0, len(symbols_to_add)):
                                 self.grammar['expr'][0].insert(22+j, symbols_to_add[j])
                                 genotype.insert(7+j, symbols_to_add[j])
@@ -205,9 +205,8 @@ class GE:
                     return None
         codon = []
         returnable_pheno = self.phenotype
-        self.set_grammar()
+        self.set_grammar(self.grammar_file)
         return returnable_pheno
-
 
     def remove_metrics(self):
         '''
@@ -232,7 +231,6 @@ class GE:
         incorporate more or less activation functions.
         
         '''
-
         self.phenotype = ""
         try:
             self.phenotype_builder()
@@ -246,7 +244,6 @@ class GE:
                 'number of epochs' : 1,
                 'batch size' : 8
             }
-        
         return self
     
     def plus_minus_mutation(self):
@@ -278,7 +275,6 @@ class GE:
         if type == 'pm':
             self.plus_minus_mutation()
         return self
-        
     
     def dictionise(self):
         '''

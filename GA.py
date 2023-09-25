@@ -1,6 +1,5 @@
 import random
 import numpy as np
-from typing import List, Any, Iterable
 class GA:
     def __init__(self, shape, mutation_rate=0.1, phenotype=None, genotype=None,
                  eco=False):
@@ -56,8 +55,8 @@ class GA:
         if self.eco:
             phenotype['mutation rate'] = round(np.random.beta(1, 7, 1)[0], 2)
             phenotype['population size'] = int(10 * random.random()) + 3
-            phenotype['cloning rate'] = round(np.random.beta(6, 4, 1)[0], 2)
-            phenotype['max generations'] = int(500 * random.random()) + 1
+            phenotype['cloning rate'] = round(np.random.beta(3, 4, 1)[0], 2)
+            phenotype['max generations'] = int(200 * random.random()) + 1
         return phenotype
     
     def remove_metrics(self):

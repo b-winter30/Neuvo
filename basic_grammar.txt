@@ -25,11 +25,11 @@
       ":",
       "[",
       "\"",
-      "activation_function",
+      "hidden_activation_functions",
       "\"",
       ",",
       "\"",
-      "activation_function",
+      "est_output_activation_functions",
       "\"",
       "]",
       ",",
@@ -55,81 +55,6 @@
       "}'"
     ]
   ],
-  "activation_function": [
-    [
-      "acti_expr"
-    ]
-  ],
-  "acti_expr": [
-    [
-      "acti_pre_op"
-    ],
-    [
-      "acti_pre_op",
-      "op",
-      "acti_expr"
-    ],
-    [
-      "(",
-      "acti_pre_op",
-      "op",
-      "acti_expr",
-      ")"
-    ]
-  ],
-  "acti_pre_op": [
-    [
-      "tf.math.sin",
-      "(",
-      "acti_input",
-      ")"
-    ],
-    [
-      "tf.math.cos",
-      "(",
-      "acti_input",
-      ")"
-    ],
-    [
-      "tf.math.tan",
-      "(",
-      "acti_input",
-      ")"
-    ],
-    [
-      "tf.math.minimum",
-      "(",
-      "acti_input",
-      ",",
-      "acti_var",
-      ")"
-    ],
-    [
-      "tf.math.maximum",
-      "(",
-      "acti_input",
-      ",",
-      "acti_var",
-      ")"
-    ],
-    [
-      "tf.math.exp",
-      "(",
-      "acti_input",
-      ")"
-    ],
-    [
-      "tf.math.tanh",
-      "(",
-      "acti_input",
-      ")"
-    ]
-  ],
-  "acti_input": [
-    [
-      "tensor"
-    ]
-  ],
   "opti": [
     [
       "SGD"
@@ -147,9 +72,23 @@
       "Nadam"
     ]
   ],
-  "learning_rate": [
+  "hidden_activation_functions": [
     [
-      "learn_var"
+      "relu"
+    ],
+    [
+      "selu"
+    ],
+    [
+      "elu"
+    ]
+  ],
+  "est_output_activation_functions": [
+    [
+      "sigmoid"
+    ],
+    [
+      "softmax"
     ]
   ],
   "layers": [
@@ -170,20 +109,6 @@
   "epochs": [
     [
       "epoch_var"
-    ]
-  ],
-  "op": [
-    [
-      "+"
-    ],
-    [
-      "/"
-    ],
-    [
-      "*"
-    ],
-    [
-      "-"
     ]
   ],
   "nodes_var": [
@@ -212,20 +137,6 @@
     ],
     [
       "3"
-    ]
-  ],
-  "learn_var": [
-    [
-      "0.0001"
-    ],
-    [
-      "0.001"
-    ],
-    [
-      "0.1"
-    ],
-    [
-      "1.0"
     ]
   ],
   "epoch_var": [
@@ -296,17 +207,6 @@
     ],
     [
       "64"
-    ]
-  ],
-  "acti_var": [
-    [
-      "0.1"
-    ],
-    [
-      "1.0"
-    ],
-    [
-      "2.0"
     ]
   ]
 }

@@ -9,11 +9,11 @@ def load_cnn_data(dir_path):
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
         x_train, x_test = x_train / 255.0, x_test / 255.0
         df = pd.DataFrame(list(zip(x_train, y_train)), columns =['Image', 'label']) 
-        val = df.sample(frac=0.1)
+        val = df.sample(frac=0.02)
         X_train = np.array([ i for i in list(val['Image'])])
         Y_train = np.array([ [i[0]] for i in list(val['label'])])
         test = pd.DataFrame(list(zip(x_test, y_test)), columns =['Image', 'label']) 
-        val_test = test.sample(frac=0.1)
+        val_test = test.sample(frac=0.02)
         X_test = np.array([ i for i in list(val_test['Image'])])
         Y_test = np.array([ [i[0]] for i in list(val_test['label'])])
         X = np.concatenate((X_train, X_test), axis=0)
@@ -23,8 +23,8 @@ def load_cnn_data(dir_path):
     return [dataX, dataY]
 
 def load_1d_data(dir_path):
-    dataX = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/x_data.csv', header=None)
-    dataY = pd.read_csv('../neuro_obj/Datasets/'+dir_path+'/y_data.csv', header=None)
+    dataX = pd.read_csv('../activation/Datasets/'+dir_path+'/x_data.csv', header=None)
+    dataY = pd.read_csv('../activation/Datasets/'+dir_path+'/y_data.csv', header=None)
     
     return [dataX.to_numpy(), dataY.to_numpy()]
 
@@ -35,20 +35,21 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--type", default='ga',  help="Type of evolutionary algorithm ga/ge")
     parser.add_argument("-e", "--eco", action='store_true', help="Ecologoical mode (True/False)")
     parser.add_argument("-ne", "--no-eco", dest='eco', action='store_false')
+    parser.add_argument("-gf", "--grammar_file", default='basic_grammar.txt')
     parser.set_defaults(eco=False)
     args = vars(parser.parse_args())
     
     data = load_1d_data(args["dataset"])
     Neuvo = NeuvoBuilder(type=args["type"], eco=args["eco"])
 
-    #Neuvo.grammar_file='basic_grammar.txt'
+    Neuvo.grammar_file=args['grammar_file']
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
-    Neuvo.population_size=50
-    Neuvo.mutation_rate=0.1
+    Neuvo.population_size=3
+    Neuvo.mutation_rate=1.0
     Neuvo.cloning_rate=0.33
-    Neuvo.max_generations=100
-    Neuvo.verbose=0
+    Neuvo.max_generations=5
+    Neuvo.verbose=2
 
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)

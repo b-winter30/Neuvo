@@ -1,13 +1,15 @@
 Datasets/*
 Results/*
-__pycache__/*
+__pycache__/
 
 *.err.*
 *.out.*
 *.txt
+*.html
+*.wsd
+*.png
 
 *.sh
-
 
 logs/
 
