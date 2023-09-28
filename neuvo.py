@@ -164,8 +164,8 @@ class Neuroevolution:
         Uses 2 fold cross validation and the objects architecture parameters.
 
         Parameters:
-            L (multiprocessing list) : A list to append the NeuroEvolution object used for multi training.
-            data (numpy array) : Numpy array consisting of the data and labels.
+            L (multiprocessing list) A list to append the NeuroEvolution object used for multi training.
+            data (numpy array) Numpy array consisting of the data and labels.
         '''
         dataX = data[0]
         dataY = data[1]
@@ -422,14 +422,14 @@ class NeuvoBuilder():
         inputted at runtime by the user.
         '''
         if self.eco and self.fittest:
-            self.parameter_list == {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
+            self.parameter_list = {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
                                    'population size' : self.fittest.EA.phenotype['population size'], 
                                    'cloning rate' : self.fittest.EA.phenotype['cloning rate'],
                                    'max generations' : self.fittest.EA.phenotype['max generations']}
-            self.mutation_rate == self.parameter_list.get('mutation rate')
-            self.cloning_rate == self.parameter_list.get('cloning rate')
-            self.population_size == self.parameter_list.get('population size')
-            self.max_generations == self.parameter_list.get('max_generations')
+            self.mutation_rate = self.fittest.EA.phenotype['mutation rate']
+            self.cloning_rate = self.fittest.EA.phenotype['cloning rate']
+            self.population_size = self.fittest.EA.phenotype['population size']
+            self.max_generations = self.fittest.EA.phenotype['max generations']
         else:
             self.parameter_list = {'mutation rate' : self.mutation_rate, 
                                    'population size' : self.population_size, 
@@ -475,17 +475,25 @@ class NeuvoBuilder():
             NeuvoBuilder obj : A NeuvoBuilder object.
         '''
         
-        assert self.tournament_size < self.population_size, "Tournament size must be less than or equal to the size of the population."
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
         
         if self.elite_mode:
             cloned_pop.append(copy.deepcopy(self.fittest))
+        
         n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
 
         cloned_pop.extend(population_copy[:n])
+        '''
+        The problem is with n, if cloning rate is higher, n can be 0.
+        this results in reproducible pop being of size 1 because it is essentially the first index of population copy.
+        And if reproducible pop is 1, then you cant reproduce.'''
         reproducible_pop = population_copy[n:]
+        if self.eco:
+            self.tournament_size = math.ceil(len(reproducible_pop) / 2) + 1
+        else:
+            assert self.tournament_size <= self.population_size, "Tournament size must be less than or equal to the size of the population."
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
             sample = random.sample(reproducible_pop, self.tournament_size)
@@ -505,6 +513,7 @@ class NeuvoBuilder():
         new_pop.extend(cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
+        self.catch_eco()
         return self
 
     def roulette_selection(self):
@@ -934,14 +943,14 @@ class NeuvoBuilder():
                                 
         '''
         console = Console()
-        with console.status("[bold green]Initialising poulation...") as status:
+        with console.status("[bold green]Initialising population...") as status:
             self.catch_eco()
             self.elite_mode=elite_mode
             if self.population_size:
                 assert len(insertions) <= self.population_size, "Length of insertions must be smaller or equal to the population size"
             pop = []
-            for genotype in insertions:
-                a = Neuroevolution(evo_params=self.parameter_list, data=self.data, genotype=genotype, type=self.type, fittest=None,
+            for phenotype in insertions:
+                a = Neuroevolution(evo_params=self.parameter_list, data=self.data, phenotype=phenotype, type=self.type, fittest=None,
                                     eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length,
                                     grammar_file=self.grammar_file)
                 #if len(a.shape) > 2:
@@ -1036,11 +1045,11 @@ class NeuvoBuilder():
                                            fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
                                            gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 pop.append(insertion)
-            
-        if len(pop[0].shape) > 2:
-            self.population = self.multi_train_cnn(pop)
-        else:
-            self.population = self.multi_train_ann(pop, data=self.data)
+        if pop:    
+            if len(pop[0].shape) > 2:
+                self.population = self.multi_train_cnn(pop)
+            else:
+                self.population = self.multi_train_ann(pop, data=self.data)
         return self
 
     def output_results_into_csv(self, output_file, elite_individual):
@@ -1203,7 +1212,6 @@ class NeuvoBuilder():
         self.which_fittest()
         self.catch_eco()
         
-        print ('max generations = ', self.max_generations)
         assert self.max_generations > 0, 'Maximum number of generations must be > 0'
         assert self.verbose in [0,1,2], 'Verbose must be 0, 1 or 2. See here for more help. https://www.tensorflow.org/api_docs/python/tf/keras/Model'
         plot_generation, plot_best_fitness, plot_elite_fitness, plot_elite_fitness, plot_avg_fitness = ([] for i in range(5))
