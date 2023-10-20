@@ -170,7 +170,7 @@ class Neuroevolution:
         dataX = data[0]
         dataY = data[1]
         tf.keras.backend.clear_session()
-        num_folds = 2
+        num_folds = 5
         model = self.build_ann_custom_architecture()
         kfold = StratifiedKFold(n_splits=num_folds, shuffle=True)
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=0, patience=3)
@@ -421,15 +421,17 @@ class NeuvoBuilder():
         set by the fittest individuals genes, else it will be chosen by the user from a parameter_file or 
         inputted at runtime by the user.
         '''
-        if self.eco and self.fittest:
-            self.parameter_list = {'mutation rate' : self.fittest.EA.phenotype['mutation rate'], 
-                                   'population size' : self.fittest.EA.phenotype['population size'], 
-                                   'cloning rate' : self.fittest.EA.phenotype['cloning rate'],
-                                   'max generations' : self.fittest.EA.phenotype['max generations']}
+
+        if self.eco and self.fittest != None:
             self.mutation_rate = self.fittest.EA.phenotype['mutation rate']
             self.cloning_rate = self.fittest.EA.phenotype['cloning rate']
             self.population_size = self.fittest.EA.phenotype['population size']
             self.max_generations = self.fittest.EA.phenotype['max generations']
+
+            self.parameter_list = {'mutation rate' : self.mutation_rate, 
+                                   'population size' : self.population_size, 
+                                   'cloning rate' : self.cloning_rate,
+                                   'max generations' : self.max_generations}
         else:
             self.parameter_list = {'mutation rate' : self.mutation_rate, 
                                    'population size' : self.population_size, 
@@ -478,22 +480,16 @@ class NeuvoBuilder():
         retrain_pop = []
         population_copy = copy.copy(self.population)
         cloned_pop = []
-        
         if self.elite_mode:
             cloned_pop.append(copy.deepcopy(self.fittest))
         
-        n = math.ceil(len(population_copy)*self.parameter_list['cloning rate'])-len(cloned_pop)
-
+        n = round((len(population_copy)*self.cloning_rate))-len(cloned_pop)
         cloned_pop.extend(population_copy[:n])
-        '''
-        The problem is with n, if cloning rate is higher, n can be 0.
-        this results in reproducible pop being of size 1 because it is essentially the first index of population copy.
-        And if reproducible pop is 1, then you cant reproduce.'''
         reproducible_pop = population_copy[n:]
         if self.eco:
             self.tournament_size = math.ceil(len(reproducible_pop) / 2) + 1
-        else:
-            assert self.tournament_size <= self.population_size, "Tournament size must be less than or equal to the size of the population."
+        
+        assert self.tournament_size <= len(reproducible_pop), "Tournament size must be less than or equal to the size of the population." + str(len(reproducible_pop))
         j = len(retrain_pop)
         while j < self.population_size-len(cloned_pop):
             sample = random.sample(reproducible_pop, self.tournament_size)
@@ -501,7 +497,6 @@ class NeuvoBuilder():
             sample.sort(key =lambda x: x.EA.phenotype.get(self.fitness_function), reverse=True)
             random_choices.append(sample[0])
             random_choices.append(sample[1])
-            
             child1, child2 = self.crossover(random_choices[0], random_choices[1])
             retrain_pop.append(child1)
             j += 1
@@ -509,8 +504,26 @@ class NeuvoBuilder():
             j += 1
         new_pop = []
         temp_pop = retrain_pop
-        temp_pop = self.retrain_pop(retrain_pop, data=self.data)
+        phenotype_list = []
+        to_be_cloned_pop = []
+        for individual in temp_pop:
+            phenotype = individual.EA.phenotype
+            if phenotype in phenotype_list:
+                temp_pop.remove(individual)
+            else:
+                phenotype_list.append(phenotype)
+        
+        temp_pop = self.retrain_pop(temp_pop, data=self.data)
+        phenotype_list = []
+        for individual in temp_pop:
+            phenotype = individual.EA.phenotype
+            if list(phenotype)[-10:] in phenotype_list:
+                to_be_cloned_pop.append(individual)
+                temp_pop.remove(individual)
+            else:
+                phenotype_list.append(list(phenotype)[-10:])
         new_pop.extend(cloned_pop)
+        new_pop.extend(to_be_cloned_pop)
         new_pop.extend(temp_pop)
         self.population = new_pop
         self.catch_eco()
@@ -719,8 +732,8 @@ class NeuvoBuilder():
         else:
             smallest = child2
             largest = child1
-        first_crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))-2)
-        second_crossover_point = random.randint(first_crossover_point+1, len(list(child1.EA.phenotype.items()))-1)
+        first_crossover_point = random.randint(0, len(list(smallest.EA.phenotype.items()))/2)
+        second_crossover_point = random.randint(first_crossover_point, len(list(smallest.EA.phenotype.items()))-1)
         count = first_crossover_point
         for key in smallest.EA.phenotype:
             if count <= second_crossover_point:
@@ -821,10 +834,8 @@ class NeuvoBuilder():
             if chance <= individual.mutation_rate:
                 individual.EA.mutate()
                 if len(individual.shape) > 2:
-                    #individual.model = individual.build_cnn_custom_architecture()
                     individual.run_cnn(data=self.data)
                 else:
-                    #individual.model = individual.build_ann_custom_architecture()
                     individual.run_ann(data=self.data)
         return self
 
@@ -953,21 +964,11 @@ class NeuvoBuilder():
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, phenotype=phenotype, type=self.type, fittest=None,
                                     eco=self.eco, verbose=self.verbose, gene_value=self.gene_value, genotype_length=self.genotype_length,
                                     grammar_file=self.grammar_file)
-                #if len(a.shape) > 2:
-                #    a.run_cnn()
-                #else:
-                #    a.run_ann()
                 pop.append(a)
             for _ in range(0, self.population_size-len(insertions)):
                 a = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, verbose=self.verbose, fittest=None,
                                 gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-                #if len(a.shape) > 2:
-                #    a.run_cnn()
-                #else:
-                #    a.run_ann()
-
                 pop.append(a)
-            
             if len(pop[0].shape) > 2:
                 self.population = self.multi_train_cnn(pop)
             else:
@@ -1024,32 +1025,46 @@ class NeuvoBuilder():
         If an ecological change happens and the population size is reduced, the least fit individuals will be removed from
         the population.
         '''
-        self.catch_eco()
+        print ('pop size before = ', len(self.population))
+        self.which_fittest()
         pop = []
         if self.fittest.EA.phenotype['population size'] > len(self.population):
             difference = self.fittest.EA.phenotype['population size'] - len(self.population)
             for _ in range(difference):
+                print ('Adding a new individual!!!')
                 insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco,
-                                        fittest=self.fittest, genotype=self.fittest.phenotype, verbose=self.verbose,
+                                        fittest=self.fittest, verbose=self.verbose,
                                         gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
                 pop.append(insertion)
         if self.fittest.EA.phenotype['population size'] < len(self.population):
             phenotype_list = []
             for individual in self.population:
                 phenotype_list.append(individual.EA.phenotype)
-            sorted_pop = sorted(phenotype_list, key= lambda x: x[self.fitness_function], reverse=True)
-            while self.fittest.EA.phenotype['population size'] < len(sorted_pop):
-                sorted_pop.pop()
-            for phenotype in sorted_pop:
-                insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
-                                           fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
-                                           gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
-                pop.append(insertion)
-        if pop:    
-            if len(pop[0].shape) > 2:
-                self.population = self.multi_train_cnn(pop)
+            sorted_pop = sorted(phenotype_list, key= lambda x: x[self.fitness_function], reverse=False)
+            print ('Sorted pop order = ', sorted_pop)
+            print ('Poppping individuals off')
+            for i, o in enumerate(self.population):
+                if self.fittest.EA.phenotype['population size'] < len(self.population):
+                    if o.EA.phenotype == sorted_pop[i]:
+                        print ('i = ', i)
+                        print ('o = ', o)
+                        del self.population[i]
+                else:
+                    break
+            # for phenotype in sorted_pop:
+            #     insertion = Neuroevolution(evo_params=self.parameter_list, data=self.data, type=self.type, eco=self.eco, 
+            #                                fittest=self.fittest, genotype=phenotype, verbose=self.verbose,
+            #                                gene_value=self.gene_value, genotype_length=self.genotype_length, grammar_file=self.grammar_file)
+            #     pop.append(insertion)
+        train_pop = pop
+        if train_pop: 
+            if len(train_pop[0].shape) > 2:
+                trained_pop = self.multi_train_cnn(train_pop, data=self.data)
+                self.population.extend(trained_pop)
             else:
-                self.population = self.multi_train_ann(pop, data=self.data)
+                print ('Sending to multi train...')
+                trained_pop = self.multi_train_ann(train_pop, data=self.data)
+                self.population.extend(trained_pop)
         return self
 
     def output_results_into_csv(self, output_file, elite_individual):
@@ -1066,22 +1081,10 @@ class NeuvoBuilder():
         
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write('FINAL OUTPUT' + "\n")
-            fd.write('' + 'Hidden layers,' + 'Nodes,' + 'Activation functions,' + 'Optimiser,' +
-                      'Epochs,' + 'B Size,' + 'Loss,' + 'Accuracy,' + 'F1,' + 'Precision,' + 'Recall,' + 'MAE,' + 'RMSE,' + 'Val. Acc.,' + 'Speed,' + 'Val x F1,' +  "\n") 
-            fd.write(str(elite_individual.get('hidden layers')) + ',' + str(elite_individual.get('nodes')) + ',' + str(elite_individual.get('activation functions')) + ',' + 
-                     str(elite_individual.get('optimiser')) + ',' + str(elite_individual.get('number of epochs')) + ',' +
-                     str(elite_individual.get('batch size')) + ',' + str(elite_individual.get('loss')) + ',' + str(elite_individual.get('accuracy')) + ',' +
-                     str(elite_individual.get('f1')) + ',' + str(elite_individual.get('precision')) + ',' + str(elite_individual.get('recall')) + ',' +
-                     str(elite_individual.get('mae')) + ',' + str(elite_individual.get('rmse')) + ',' + str(elite_individual.get('validation_accuracy')) + ',' +
-                     str(elite_individual.get('speed')) + ',' + str(elite_individual.get('val_acc_x_f1')) +"\n")
+            fd.write('Elite individual' + "\n")
+            fd.write(str(elite_individual))
             fd.write("\n")
             fd.close()
-        if self.eco:
-            with open('./Results/'+output_file+'.csv','a') as fd:
-                fd.write(str(elite_individual.get('population size')) + ',' + str(elite_individual.get('max generations')) + ',' + str(elite_individual.get('mutation rate')) + ',' + 
-                        str(elite_individual.get('cloning rate')) + "\n")
-                fd.write("\n")
-                fd.close()
 
         return None
 
@@ -1101,31 +1104,12 @@ class NeuvoBuilder():
                                 Files are stored as './Results/-output_file-'
         '''
         self.save_phenotypes()
-        string0 = "Validation accuracy = " + str(elite_individual['validation_accuracy'])
-        string00 = "Speed = " + str(elite_individual['speed'])
-        string1 = "MAE = " + str(elite_individual['mae'])
-        string2 = "Test acc = " + str(elite_individual['accuracy'])
-        string3 = "RMSE = " + str(elite_individual['rmse'])
-        string4 = "Precision = " + str(elite_individual['precision'])
-        try:
-            string5 = "Recall = " + str(elite_individual['recall'])
-        except ValueError:
-            string5 = "ROC AUC Error"
-        string6 = "F Measure score = " + str(elite_individual['f1'])
-        string9 = "Validation accuracy x F Measure score = " + str(elite_individual['val_acc_x_f1'])
         string7 = "Individual = " + str(elite_individual)
+        pop_avg_fitness = str(self.pop_average_fitness)
         with open('./Results/'+output_file+'.csv','a') as fd:
             fd.write(generation + "\n") 
-            fd.write(string0 + "\n")
-            fd.write(string00 + "\n")
-            fd.write(string1 + "\n")
-            fd.write(string2 + "\n")
-            fd.write(string3 + "\n")
-            fd.write(string4 + "\n")
-            fd.write(string5 + "\n")
-            fd.write(string6 + "\n")
             fd.write(string7 + "\n")
-            fd.write(string9 + "\n")
+            fd.write('Average population fitness: ' + pop_avg_fitness + "\n")
             fd.write("\n")
             fd.close()
         print ('Checkpoint stored')
@@ -1227,6 +1211,13 @@ class NeuvoBuilder():
                         if self.max_generations <= i:
                             catch = True
                     fittest_of_gen = self.which_fittest()
+
+                    # for individual in self.population:
+                    #     print (individual.EA.phenotype.get(self.fitness_function))
+                    # print ('Fittest individual = ', self.fittest.EA.phenotype)
+                    # print ('Current parameters = ', self.parameter_list)
+                    # print ('Current parameters outside = ', {'max_generations' : self.max_generations, 'cloning_rate' : self.cloning_rate})
+
                     #Every 50th generation, save the fittest network in a file.
                     if i % 5 == 0 or i == 1 or catch:
                         self.checkpoint_handler(str(i), elite_individual=self.fittest.EA.phenotype, output_file=output_file)
