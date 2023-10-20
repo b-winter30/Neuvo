@@ -45,11 +45,12 @@ if __name__ == '__main__':
     Neuvo.grammar_file=args['grammar_file']
     Neuvo.selection='Tournament'
     Neuvo.crossover_method='two_point'
+    Neuvo.tournament_size=4
     Neuvo.population_size=3
     Neuvo.mutation_rate=1.0
     Neuvo.cloning_rate=0.33
-    Neuvo.max_generations=5
-    Neuvo.verbose=2
+    Neuvo.max_generations=2
+    Neuvo.verbose=0
 
     Neuvo.dataset_name = args["dataset"]
     Neuvo.load_data(data)
