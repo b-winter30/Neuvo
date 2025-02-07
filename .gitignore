@@ -13,6 +13,9 @@ __pycache__/
 
 logs/
 wandb/
+neuvo_venv/
+*.cff
+
 *egg-info/
 .ipynb_checkpoints/
 
