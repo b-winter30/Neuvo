@@ -2,8 +2,7 @@ import argparse
 import os
 from datasets import load_dataset
 from rich.console import Console
-from .builder import NeuvoBuilderTransformer
-from .config import EvolutionConfig
+from neuvo import NeuvoBuilderTransformer, EvolutionConfig
 import torch
 
 def load_dataset_from_hub(dataset_name: str, subset: str = None):
@@ -69,13 +68,13 @@ def main():
     parser.add_argument(
         "-ps", "--population_size",
         type=int,
-        default=10,
+        default=3,
         help="Population size for evolution"
     )
     parser.add_argument(
         "-mg", "--max_generations",
         type=int,
-        default=10,
+        default=2,
         help="Maximum number of generations"
     )
     parser.add_argument(
@@ -114,6 +113,7 @@ def main():
     config = EvolutionConfig(
         mutation_rate=0.1,
         population_size=10,
+        cloning_rate=0.2,
         max_generations=200,
         model_name='distilbert-base-uncased',
         fitness_function='eval_accuracy',

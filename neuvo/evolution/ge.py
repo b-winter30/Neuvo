@@ -50,7 +50,10 @@ class GE:
         """Define grammar tokens and operators"""
         self.basic_ops = ['+', '/', '*', '-']
         self.keys = ['learning_rate', 'optimizer', 'num_epochs', 'batch_size', 'warmup_ratio', 'weight_decay']
-        self.punctuation = ['(', ')', '[', '[\'', '], ', '\'], ', '\'] ', ']', ':', ',', '\"', '\'{', '}\'']
+        # Add the JSON formatting versions of the keys to punctuation
+        self.punctuation = ['(', ')', '[', '[\'', '], ', '\'], ', '\'] ', ']', ':', ',', '\"', '\'{', '}\'',
+                        '"learning_rate":', '"optimizer":', '"num_epochs":', 
+                        '"batch_size":', '"warmup_ratio":', '"weight_decay":']
         return self
 
     def set_grammar(self, user_grammar_file: Optional[str] = None):
